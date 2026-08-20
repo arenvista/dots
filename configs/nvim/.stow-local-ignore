@@ -1,0 +1,6 @@
+# Build artifacts from `yarn install` in .config/ (see .config/nvim/DEPS.md).
+# Without this they stow into ~/.config/ root instead of ~/.config/nvim.
+^/\.config/node_modules$
+^/\.config/package\.json$
+^/\.config/package-lock\.json$
+^/\.config/yarn\.lock$

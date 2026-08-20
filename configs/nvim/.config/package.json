@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "pyright": "^1.1.382",
+    "tree-sitter-cli": "^0.24.3"
+  }
+}

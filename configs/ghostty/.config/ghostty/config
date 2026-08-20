@@ -1,0 +1,55 @@
+# ~/.config/ghostty/config
+# Reload with: ctrl+shift+, (or restart Ghostty)
+
+# --- Shell ---
+# Ghostty launches your login shell (zsh) by default, so no `command` needed.
+shell-integration = zsh
+shell-integration-features = cursor,sudo,title
+
+# --- Theme (follows system light/dark) ---
+# These reference the hardcoded theme files in ~/.config/ghostty/themes/
+theme = theme-custom
+
+# --- Font ---
+font-family = JetBrains Mono
+font-size = 12
+font-feature = +liga
+# Uncomment if bold text looks too heavy:
+# font-thicken = false
+
+# --- Window ---
+# Minimal chrome since tmux provides your status/splits
+window-decoration = true
+window-padding-x = 8
+window-padding-y = 8
+window-padding-balance = true
+background-opacity = 0.75
+# background-blur-radius = 20   # only matters if opacity < 1
+
+# --- Cursor ---
+cursor-style = block
+cursor-style-blink = false
+
+# --- Scrollback ---
+# Modest since tmux keeps its own history
+scrollback-limit = 10000
+
+# --- Clipboard ---
+copy-on-select = clipboard
+clipboard-trim-trailing-spaces = true
+clipboard-paste-protection = true
+
+# --- Mouse ---
+mouse-hide-while-typing = true
+
+# --- Behavior ---
+confirm-close-surface = false
+quit-after-last-window-closed = true
+
+# --- Keybinds ---
+# Kept sparse so nothing shadows your tmux prefix.
+keybind = ctrl+shift+c=copy_to_clipboard
+keybind = ctrl+shift+v=paste_from_clipboard
+keybind = ctrl+shift+plus=increase_font_size:1
+keybind = ctrl+shift+minus=decrease_font_size:1
+keybind = ctrl+shift+zero=reset_font_size

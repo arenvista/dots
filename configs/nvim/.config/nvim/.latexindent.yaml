@@ -1,0 +1,21 @@
+# 1. Define $$ ... $$ as a distinct environment
+specialBeginEnd:
+  displayMath:
+    begin: '\$\$'
+    end: '\$\$'
+    lookForThis: 1
+    
+# 2. Ensure content inside $$ ... $$ is indented
+indentAfterItems:
+  displayMath: 1
+
+# 3. (Optional) Align environments commonly used inside display math
+indentRules:
+  aligned: 1
+  matrix: 1
+  cases: 1
+
+# 4. Settings to keep the output clean for injections
+# (Prevent latexindent from adding a preamble or wrapping the output)
+onlyOneBackUp: 1
+maxColumn: 80

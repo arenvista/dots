@@ -1,0 +1,915 @@
+# features.toml — what this rice is made of, feature by feature.
+#
+# Each [feature.<group>.<name>] block is one selectable unit: the stow packages
+# it links, the Arch packages it needs, and the services it turns on. Flip
+# `enabled` to choose what a machine gets; everything false is simply skipped.
+#
+#   stow      directories under configs/ to link into $HOME
+#   pacman    official-repo packages   (pacman -S --needed)
+#   aur       AUR packages             (yay/paru -S --needed)
+#   requires  other features that MUST be on for this one to work (hard edge)
+#   suggests  companions that make this better but are not required (soft edge)
+#   services  systemd units to enable  ("--user" prefix = user unit)
+#   manual    steps no package manager can do (git clones, in-app installs)
+#
+# Granularity rule: a feature is the smallest unit you would plausibly toggle on
+# its own. Every stow package is claimed by exactly one feature, and every
+# `pacman`/`aur` entry carries an inline comment naming the thing that needs it.
+# If a package has no stated consumer, it does not belong in the list.
+#
+# Package names were checked against the Arch repos on 2026-08-20; anything in
+# `aur` was confirmed absent from core/extra/multilib on that date.
+
+[meta]
+name = "sybil-dotfiles"
+target = "~"            # stow target
+stow_dir = "configs"
+aur_helper = "yay"      # falls back to paru, then skips `aur` lists
+
+# Named presets. A runner should union the feature ids of the chosen profile
+# (following `requires` transitively) and treat that as the `enabled = true`
+# set, ignoring the per-feature flags.
+[profiles]
+# Just enough to make a login shell feel like home.
+minimal = [
+    "shell.zsh",
+    "shell.prompt",
+    "shell.bash",
+    "cli.core",
+    "system.dotfiles",
+    "system.fonts",
+]
+# A headless/SSH box: full terminal workflow, no compositor.
+terminal = [
+    "shell.zsh",
+    "shell.prompt",
+    "shell.bash",
+    "shell.tmux",
+    "cli.core",
+    "cli.archives",
+    "cli.transfer",
+    "cli.disk",
+    "cli.manpages",
+    "cli.files",
+    "cli.fetch",
+    "cli.catnap",
+    "terminal.kitty",
+    "editor.neovim",
+    "editor.neovim-git",
+    "dev.base",
+    "dev.node",
+    "dev.python",
+    "dev.c",
+    "docs.zathura",
+    "system.dotfiles",
+    "system.fonts",
+]
+# This machine: the full Hyprland session.
+desktop = [
+    "shell.zsh",
+    "shell.prompt",
+    "shell.bash",
+    "shell.tmux",
+    "cli.core",
+    "cli.archives",
+    "cli.transfer",
+    "cli.disk",
+    "cli.manpages",
+    "cli.files",
+    "cli.fetch",
+    "cli.catnap",
+    "cli.define",
+    "terminal.kitty",
+    "terminal.ghostty",
+    "editor.neovim",
+    "editor.neovim-git",
+    "editor.neovim-org",
+    "dev.base",
+    "dev.node",
+    "dev.python",
+    "dev.rust",
+    "dev.go",
+    "dev.c",
+    "docs.zathura",
+    "desktop.hyprland",
+    "desktop.portals",
+    "desktop.lockscreen",
+    "desktop.pointer",
+    "desktop.waybar",
+    "desktop.quickshell",
+    "desktop.notifications",
+    "desktop.launcher",
+    "desktop.logout",
+    "desktop.screenshot",
+    "desktop.theming",
+    "desktop.wallpapers",
+    "desktop.appearance",
+    "audio.pipewire",
+    "audio.mixer",
+    "net.core",
+    "net.bluetooth",
+    "net.miniserve",
+    "net.syncthing",
+    "net.kdeconnect",
+    "apps.browser",
+    "system.dotfiles",
+    "system.fonts",
+]
+full = ["*"] # every feature below
+
+# ===========================================================================
+# shell — login shells, prompt, multiplexer
+# ===========================================================================
+
+[feature.shell.zsh]
+enabled = true
+description = "zsh + oh-my-zsh — the login shell, its aliases and fzf widgets"
+stow = ["zsh"]
+pacman = [
+    "zsh",                     # the shell itself; kitty.conf pins /bin/zsh
+    "zsh-autosuggestions",     # sourced by .zshrc
+    "zsh-syntax-highlighting", # sourced by .zshrc
+]
+aur = ["oh-my-zsh-git"] # .zshrc sources $HOME/.oh-my-zsh/oh-my-zsh.sh
+requires = [
+    "cli.core",
+] # aliases assume lsd; the fzf widgets assume fzf + fd + bat
+suggests = ["shell.prompt", "cli.catnap", "shell.tmux"]
+manual = [
+    "nvm (optional): the lazy-load block in .zshrc activates only if ~/.nvm/nvm.sh exists",
+    "~/.secret_keys/openai.env is sourced if present; create it or ignore",
+]
+notes = """
+Package: .zshrc plus .config/zsh_custom/{aliases,macros}.zsh and
+macros/{tmux-sessionizer,tmux-manager}.zsh.
+macros.zsh binds the fzf widgets: Ctrl-W cd, Ctrl-X kill, Ctrl-B checkout,
+Alt-E edit, plus Ctrl-F/Ctrl-S for the tmux macros (see shell.tmux).
+"""
+
+[feature.shell.prompt]
+enabled = true
+description = "starship prompt, shared by zsh and bash"
+stow = ["starship"]
+pacman = ["starship"]                                   # .zshrc ends with `eval "$(starship init zsh)"`
+notes = "Package is a single .config/starship.toml."
+
+[feature.shell.bash]
+enabled = true
+description = "bash fallback rc — same aliases, sourced by non-zsh logins"
+stow = ["bash"]
+pacman = ["bash"]
+suggests = ["shell.prompt", "cli.catnap"]
+notes = """
+The `sl` alias locks with ~/wallpapers/current, the symlink desktop.theming
+maintains, via swaylock (desktop.logout). .bashrc also sends kitty a SIGUSR1
+colour reload and runs catnap at login.
+"""
+
+[feature.shell.tmux]
+enabled = true
+description = "tmux with tpm plugins, vim-aware pane nav, fzf session picker"
+stow = ["tmux"]
+pacman = [
+    "tmux",
+    "fzf",  # the session picker macros are fzf-driven
+]
+manual = [
+    "git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm, then prefix + I",
+]
+notes = """
+Session picking lives in the zsh package, not here: Ctrl-F runs
+zsh_custom/macros/tmux-sessionizer.zsh and Ctrl-S runs tmux-manager.zsh, both
+over ~/.config/tmux/sessions.csv. nvim mirrors them on <C-f>f / <C-f>s.
+"""
+
+# ===========================================================================
+# cli — everyday terminal tooling, split so a box can take only what it needs
+# ===========================================================================
+
+[feature.cli.core]
+enabled = true
+description = "the six tools this repo's own configs hard-depend on"
+stow = ["lsd"]
+pacman = [
+    "lsd",     # the `ls` alias; this feature ships its config.yaml + icons.yaml
+    "fd",      # the fzf widgets in macros.zsh; nvim pickers
+    "ripgrep", # the `grep` path in nvim's picker backend
+    "fzf",     # every interactive picker in this repo
+    "bat",     # preview pane in the fzf widgets
+    "jq",      # define.sh, applwal.sh, hyprland.lua monitor queries
+]
+notes = "Removing any one of these breaks a binding or a script that is on by default."
+
+[feature.cli.archives]
+enabled = true
+description = "zip handling"
+pacman = ["unzip", "zip"]
+
+[feature.cli.transfer]
+enabled = true
+description = "HTTP fetchers that install scripts and plugins shell out to"
+pacman = ["wget", "curl"]
+
+[feature.cli.disk]
+enabled = true
+description = "disk usage and safe deletion"
+pacman = [
+    "tree",
+    "ncdu",
+    "trash-cli", # yazi is configured to trash rather than rm
+]
+
+[feature.cli.manpages]
+enabled = true
+description = "man pages and the pager they render through"
+pacman = ["man-db", "less"]
+
+[feature.cli.files]
+enabled = true
+description = "yazi file manager, wired to nsxiv / zathura / nvim openers"
+stow = ["yazi"]
+pacman = [
+    "yazi",
+    "nsxiv", # yazi's image opener
+]
+requires = ["editor.neovim", "docs.zathura"]
+suggests = ["cli.disk"] # yazi's delete path uses trash-cli
+notes = "Bound to Ctrl-Y in zsh and SUPER+E in hyprland (ghostty -e yazi)."
+
+[feature.cli.fetch]
+enabled = true
+description = "fastfetch with a pokemon-colorscripts logo"
+pacman = ["fastfetch"]
+aur = ["pokemon-colorscripts-go"]                                                # the logo fastfetch renders
+requires = ["system.fonts"]
+notes = "No stow package: ~/.config/fastfetch is owned by a separate dots repo."
+
+[feature.cli.catnap]
+enabled = true
+description = "catnap — the fetch tool both rc files run at login"
+stow = ["catnap"]
+aur = ["catnap-git"]
+requires = ["system.fonts"]
+notes = "Package is .config/catnap/{config,distros}.cat + themes/catppuccin-mocha.cat."
+
+[feature.cli.define]
+enabled = true
+description = "define.sh — dictionary lookup of the primary selection"
+stow = ["scripts"]
+pacman = [
+    "jq",           # parses the dictionary API response
+    "wl-clipboard", # wl-paste --primary supplies the word
+    "libnotify",    # the result is delivered as a notification
+]
+notes = """
+configs/scripts/ is this one script and nothing else — it is NOT part of the
+theming pipeline (applwal.sh lives in the quickshell package). Not bound to any
+key; run it by hand or wire it up yourself.
+"""
+
+[feature.cli.monitoring]
+enabled = false
+description = "terminal system monitors"
+pacman = ["bpytop", "duf"]
+
+# ===========================================================================
+# terminal — emulators
+# ===========================================================================
+
+[feature.terminal.kitty]
+enabled = true
+description = "kitty terminal, 0.75 opacity, /bin/zsh as the shell"
+stow = ["kitty"]
+pacman = ["kitty"]
+requires = ["system.fonts"]
+notes = """
+Contents: kitty.conf, current-theme.conf, theme-custom.template.
+NOT auto-themed: quickshell/scripts/kitty-colorizer.py can render
+theme-custom.template from the wal palette, but applwal.sh never calls it, so
+current-theme.conf is whatever was last written by hand. .bashrc still sends
+kitty a SIGUSR1 reload. Add the colorizer to applwal.sh to make this live.
+"""
+
+[feature.terminal.ghostty]
+enabled = true
+description = "ghostty, pywal-themed via ghosty-colorizer.py — the SUPER+E terminal"
+stow = ["ghostty"]
+pacman = ["ghostty"]
+requires = ["system.fonts"]
+suggests = ["desktop.theming"]                                                             # the colorizer only runs from applwal.sh
+notes = "themes/theme-custom is generated from theme-custom.template; reloads on SIGUSR2."
+
+# ===========================================================================
+# editor — neovim core plus its optional plugin stacks
+# ===========================================================================
+
+[feature.editor.neovim]
+enabled = true
+description = "neovim ≥0.11 (lazy.nvim + mason), the config's required baseline"
+stow = ["nvim"]
+pacman = [
+    "neovim",
+    "tree-sitter-cli", # :TSUpdate builds parsers with it
+    "xdg-utils",       # `gx` open-under-cursor
+    "wl-clipboard",    # clipboard provider on wayland
+    "vim",             # provides xxd, which hex.nvim shells out to
+]
+requires = ["dev.base", "dev.node", "dev.python", "cli.core", "system.fonts"]
+suggests = ["dev.c", "dev.rust", "editor.neovim-git"]
+manual = [
+    ":Lazy sync, :MasonToolsInstall, :TSUpdate, :checkhealth on first run",
+]
+notes = """
+See configs/nvim/.config/nvim/DEPS.md for the per-plugin breakdown.
+Why dev.node + dev.python are hard requirements: mason's ensure_installed pulls
+prettier / eslint_d / css-lsp / html-lsp / pyright (npm) and isort / black /
+pylint (pip). clangd comes from dev.c; rustfmt from dev.rust.
+The package also carries .config/.gitignore (ignores node_modules/), which stows
+to ~/.config/.gitignore — node_modules and the package.json/yarn.lock beside it
+belong to mason-installed tooling, not to this repo.
+"""
+
+[feature.editor.neovim-git]
+enabled = true
+description = "fugitive + gitsigns in-buffer, lazygit as the full UI"
+pacman = ["lazygit"]                                                                                                # opened via Snacks.lazygit() from maps.lua
+requires = ["editor.neovim", "dev.base"]
+notes = "Plugin specs: plugins/integrations/git/{fugitive,gitsigns}.lua. `glog` in macros.zsh also opens fugitive."
+
+[feature.editor.neovim-org]
+enabled = true
+description = "orgmode.nvim + orgblocks — the org files the start page reads"
+requires = ["editor.neovim"]
+suggests = [
+    "apps.browser",
+] # utils/firefox/org-sync.py turns the same files into todo.js
+notes = """
+Config-only, no packages: plugins/integrations/org/orgmode.lua and
+plugins/viewers/orgblocks.lua. <leader>oC toggles the agenda view.
+"""
+
+[feature.editor.neovim-latex]
+enabled = false
+description = "vimtex + texpresso live preview inside neovim"
+requires = ["editor.neovim", "docs.latex"]
+notes = """
+Plugin specs: plugins/integrations/latex/vimtex.lua and plugins/viewers/texpresso.lua.
+The texpresso binary and the TeX Live set come from docs.latex; conform runs
+latexindent on tex buffers (mason installs it).
+"""
+
+[feature.editor.neovim-images]
+enabled = false
+description = "snacks.image — inline images and rendered LaTeX/Typst math"
+pacman = [
+    "imagemagick", # rasterises the math snippets
+    "ghostscript", # PDF/EPS input path
+]
+requires = ["editor.neovim"]
+suggests = ["docs.latex", "docs.typst", "terminal.kitty", "terminal.ghostty"]
+notes = "Needs a kitty-graphics terminal: terminal.kitty or terminal.ghostty."
+
+[feature.editor.neovim-ai]
+enabled = false
+description = "CodeCompanion over ACP + Copilot"
+aur = ["claude-code"] # the ACP server codecompanion.lua talks to
+requires = ["editor.neovim", "dev.node"]
+manual = [
+    "claude setup-token (no ANTHROPIC_API_KEY is read)",
+    ":Copilot auth — needs a GitHub Copilot subscription",
+]
+notes = "Plugin specs: plugins/integrations/ai/codecompanion.lua, plugins/completion/copilot.lua."
+
+[feature.editor.neovim-exec]
+enabled = false
+description = "sniprun / overseer — run code straight from the buffer"
+pacman = [
+    "rustup", # sniprun's local build path
+    "cmake",
+    "nasm",
+]
+requires = ["editor.neovim"]
+notes = "sniprun fetches a prebuilt binary on install; a local build needs Rust ≥1.65."
+
+# ===========================================================================
+# dev — one feature per toolchain, so a box takes only the languages it uses
+# ===========================================================================
+
+[feature.dev.base]
+enabled = true
+description = "compiler toolchain, git, and the AUR build prerequisites"
+pacman = [
+    "base-devel", # makepkg needs it, so every `aur` list here depends on this
+    "git",
+    "github-cli",
+]
+
+[feature.dev.node]
+enabled = true
+description = "Node — mason's npm-backed LSPs and formatters"
+pacman = [
+    "nodejs",
+    "npm",    # mason installs prettier, eslint_d, css-lsp, html-lsp, pyright
+    "yarn",
+]
+requires = ["dev.base"]
+
+[feature.dev.python]
+enabled = true
+description = "Python — mason's pip-backed tools, plus the repo's own scripts"
+pacman = [
+    "python",     # zathura templater.py, org-sync.py, the colorizers
+    "python-pip", # mason installs isort, black, pylint
+    "uv",         # runs quickshell's create_thumbs.py (pulls Pillow itself)
+]
+requires = ["dev.base"]
+
+[feature.dev.rust]
+enabled = true
+description = "Rust — rustfmt for conform's rust formatter"
+pacman = ["rustup"]
+requires = ["dev.base"]
+notes = "conform.lua maps rust -> rustfmt with lsp_format = fallback."
+
+[feature.dev.go]
+enabled = true
+description = "Go toolchain"
+pacman = ["go"]
+requires = ["dev.base"]
+
+[feature.dev.c]
+enabled = true
+description = "clang + cmake — clangd, and the build tooling plugins shell out to"
+pacman = [
+    "clang", # provides clangd, which mason's ensure_installed lists
+    "cmake",
+]
+requires = ["dev.base"]
+
+[feature.dev.debug]
+enabled = false
+description = "debugging and profiling"
+pacman = ["gdb", "gef", "valgrind"]
+requires = ["dev.base"]
+
+# ===========================================================================
+# docs — document viewing and typesetting
+# ===========================================================================
+
+[feature.docs.zathura]
+enabled = true
+description = "zathura PDF viewer, pywal-themed, synctex-wired to nvim"
+stow = ["zathura"]
+pacman = [
+    "zathura",
+    "zathura-pdf-poppler", # the PDF backend; zathura ships none by default
+]
+requires = ["dev.python"] # templater.py is the theming step
+suggests = ["desktop.theming"]
+notes = """
+Package is templater.py + zathurarc.template + the generated zathurarc (gitignored).
+templater.py renders the template from ~/.cache/wal/colors.json directly (not from a
+pywal template file); applwal.sh calls it on every wallpaper change.
+"""
+
+[feature.docs.latex]
+enabled = false
+description = "the TeX Live set this config compiles and formats against"
+pacman = [
+    "texlive-basic",
+    "texlive-latex",
+    "texlive-latexrecommended",
+    "texlive-latexextra",
+    "texlive-binextra",         # ships latexindent and latexmk
+    "texlive-fontsrecommended",
+    "texlive-mathscience",
+    "perl-file-homedir",        # latexindent runtime dep
+    "perl-yaml-tiny",           # latexindent runtime dep
+]
+aur = ["texpresso-git"] # the binary texpresso.vim drives
+requires = ["docs.zathura"]
+notes = """
+No stow package: the old tex_templates/ preamble and its TEXINPUTS hook in
+nvim's options.lua were removed. Pair with editor.neovim-latex for the plugins.
+"""
+
+[feature.docs.typst]
+enabled = false
+description = "typst compiler + tinymist LSP and live preview"
+pacman = ["typst", "tinymist"]
+requires = ["editor.neovim"]
+notes = "typst-preview.nvim downloads its own tinymist on first run if absent."
+
+# ===========================================================================
+# desktop — the Hyprland session, split by the piece you would turn off
+# ===========================================================================
+
+[feature.desktop.hyprland]
+enabled = true
+description = "the Hyprland compositor itself — lua config, scrolling layout"
+stow = ["hypr"]
+pacman = [
+    "hyprland",
+    "hyprland-qtutils", # the dialogs hyprland shells out to
+    "hyprpolkitagent",  # started from the hyprland.start hook
+    "wl-clipboard",     # SUPER+N screenshot pipes through wl-copy
+    "jq",               # hyprctl monitor queries in hyprland.lua and applwal.sh
+    "hyprpicker",       # colour picker; installed, but not bound to any key here
+]
+aur = ["hyprscrolling"] # general.layout = "scrolling"; installed via hyprpm
+services = ["--user hyprpolkitagent"]
+requires = ["desktop.portals", "audio.pipewire"]
+suggests = [
+    "desktop.lockscreen",
+    "desktop.pointer",
+    "desktop.waybar",
+    "desktop.quickshell",
+]
+manual = [
+    "hyprpm add https://github.com/... && hyprpm enable hyprscrolling (config calls `hyprpm reload -n` at startup)",
+]
+notes = """
+Package contents: hyprland.lua (the lua config format, not hyprlang), hyprlock.conf,
+.luarc.json (LSP hints for the lua config), xdph_start.sh, pk_install_screenshare.sh
+(a yay helper for the portal packages), and `config` — which is the wl-kbptr
+config, passed explicitly as `wl-kbptr -c ~/.config/hypr/config`.
+The hyprland.start hook launches: waybar, quickshell, swaync, awww-daemon,
+mpd-mpris, kdeconnect-indicator, syncthing and miniserve. Each of those belongs
+to the feature named below; a disabled feature leaves a failing exec line behind.
+"""
+
+[feature.desktop.portals]
+enabled = true
+description = "xdg-desktop-portal-hyprland — screen sharing and file pickers"
+pacman = [
+    "xdg-desktop-portal",
+    "xdg-desktop-portal-hyprland",
+    "xdg-desktop-portal-gtk",      # the GTK file-chooser backend
+]
+notes = "hypr/xdph_start.sh restarts the portal stack after the compositor is up."
+
+[feature.desktop.lockscreen]
+enabled = true
+description = "hyprlock — the lock screen the keybind and dashboard button call"
+pacman = ["hyprlock"] # hyprlock.conf ships with the hypr package
+requires = ["desktop.hyprland"]
+notes = """
+Bound to SUPER+SHIFT+CTRL+ALT+L in hyprland.lua and to the power button in
+quickshell's Dashboard.
+No idle timeout is configured: hypridle and swayidle are installed on this
+machine but neither has a config file in this repo, so nothing auto-locks.
+"""
+
+[feature.desktop.pointer]
+enabled = true
+description = "keyboard-driven pointer — jump-to-target and the `cursor` submap"
+aur = [
+    "wl-kbptr", # SUPER+R jump-to-target, config at ~/.config/hypr/config
+    "wlrctl",   # the "cursor" submap's pointer moves, clicks and scrolls
+]
+requires = ["desktop.hyprland"]
+notes = "SUPER+A enters the submap; hjkl move, s/d/f click, e/r/t/g scroll, escape exits."
+
+[feature.desktop.waybar]
+enabled = true
+description = "waybar top bar — clock, workspaces, media, volume, net, dashboard"
+stow = ["waybar"]
+pacman = [
+    "waybar",
+    "playerctl",      # custom/media runs it inline
+    "wireplumber",    # scripts/volume.sh calls wpctl
+    "networkmanager", # scripts/network.sh calls nmcli
+    "bluez-utils",    # the bluetooth indicator
+]
+requires = ["desktop.hyprland", "system.fonts"]
+suggests = ["desktop.quickshell", "desktop.theming"]
+notes = """
+Bar buttons call `qs ipc call ...`, so the panels come from desktop.quickshell.
+launch.sh (killall + relaunch) is what hyprland and applwal.sh invoke.
+scripts/ holds volume.sh and network.sh; custom/media runs playerctl inline.
+style.css imports ~/.cache/wal/colors-waybar.css, generated by desktop.theming.
+"""
+
+[feature.desktop.quickshell]
+enabled = true
+description = "quickshell panels — launcher, dashboard, wifi, bluetooth, music"
+stow = ["quickshell"]
+pacman = [
+    "quickshell",
+    "qt6-declarative", # the QML runtime
+    "qt6-5compat",     # Qt5Compat.GraphicalEffects, used by MusicPanel's DropShadow
+    "uv",              # runs scripts/create_thumbs.py
+    "brightnessctl",   # the dashboard brightness slider
+    "libnotify",       # low-battery notifications
+    "imagemagick",     # applwal.sh's resize/blur steps live in this package
+]
+requires = [
+    "desktop.hyprland",
+    "audio.pipewire",
+    "net.core",
+    "net.bluetooth",
+    "desktop.theming",
+]
+notes = """
+Wifi/BT/MPRIS come from Quickshell's own services, not shelled-out CLIs.
+Thumbnails: `uv run scripts/create_thumbs.py` (pulls Pillow itself).
+Layout: shell.qml + components/ (Dashboard, LauncherPanel, MusicPanel, WifiPanel,
+BluetoothPanel) + Common/ (Theme, Paths, StyledText, Card, ToggleSwitch, ValueSlider).
+scripts/ also holds applwal.sh (the theming hub used by desktop.theming),
+ghosty-colorizer.py and kitty-colorizer.py.
+assets/ is ~8MB of live content, not cruft: MusicPanel `find`s assets/gifs/*.gif
+for its picker (copying the choice to current.gif) and the Dashboard does the same
+with assets/pfps/ -> pfp.jpg. assets/gifs/circlegif.sh is the ffmpeg helper that
+authored them (mp4 -> circular gif).
+Runtime state (app_usage.json) lives in ~/.local/state/quickshell, not the repo.
+"""
+
+[feature.desktop.notifications]
+enabled = true
+description = "swaync notification daemon and control center"
+stow = ["swaync"]
+pacman = ["swaync", "libnotify"]
+requires = ["desktop.hyprland"]
+suggests = ["desktop.theming"]
+notes = "style.css is generated (gitignored) — applwal.sh copies ~/.cache/wal/colors-swaync.css over it."
+
+[feature.desktop.launcher]
+enabled = true
+description = "rofi app launcher (SUPER+SPACE), wallpaper-backed theme"
+stow = ["rofi"]
+pacman = [
+    "rofi",
+    "tela-circle-icon-theme-dracula", # config.rasi sets icon-theme to Tela-circle-dracula
+]
+requires = ["desktop.theming", "system.fonts"]
+notes = """
+config.rasi is the whole package; it themes from ~/.cache/wal/colors-rofi-light.rasi,
+which is one of pywal's BUILTIN templates, so pywal must have run once.
+quickshell also ships its own launcher panel (SUPER+B) — the two coexist.
+"""
+
+[feature.desktop.logout]
+enabled = true
+description = "wlogout power menu, with swaylock as its lock action"
+stow = ["wlogout"]
+pacman = ["swaylock"] # wlogout/layout's lock button and .bashrc's `sl` alias
+aur = ["wlogout"]
+requires = ["desktop.hyprland"]
+notes = """
+Package is layout + style.css. Note the split with desktop.lockscreen: the
+hyprland keybind and the quickshell dashboard use hyprlock, while this menu's
+lock button and the bash `sl` alias use swaylock.
+"""
+
+[feature.desktop.screenshot]
+enabled = true
+description = "grim + slurp region capture (SUPER+N)"
+pacman = [
+    "grim",
+    "slurp",        # the region selector piped into grim
+    "wl-clipboard", # the capture goes straight to wl-copy
+]
+requires = ["desktop.hyprland"]
+
+[feature.desktop.screenrecord]
+enabled = false
+description = "GPU-accelerated screen recording"
+pacman = ["gpu-screen-recorder"]
+requires = ["desktop.hyprland", "desktop.portals"]
+notes = "Not bound to any key in hyprland.lua; invoke it manually."
+
+[feature.desktop.theming]
+enabled = true
+description = "the pywal palette pipeline — applwal.sh and the wal templates"
+stow = ["wal"]
+pacman = [
+    "python-pywal", # `wal` generates the palette
+    "awww",         # sets the wallpaper (NOT swww — swww is not installed)
+    "imagemagick",  # `magick` resize/crop/blur steps
+    "jq",           # reads hyprctl monitor geometry
+]
+requires = ["dev.python", "cli.core"]
+suggests = ["desktop.wallpapers"]
+notes = """
+applwal.sh is the hub: sets the wallpaper (awww), regenerates the palette (wal),
+then re-themes waybar, swaync, zathura and ghostty. It lives in the quickshell
+package (scripts/applwal.sh), NOT in configs/scripts/ — that package is
+define.sh alone (see cli.define).
+
+This feature's own stow package is `wal`, which carries only the two custom
+pywal templates that still have a consumer:
+  colors-swaync.css  -> applwal.sh copies it over swaync/style.css
+  colors-waybar.css  -> @import-ed by waybar/style.css
+Everything else reads pywal's builtin outputs or ~/.cache/wal/colors.json direct
+(quickshell Theme.qml, zathura templater.py, rofi's colors-rofi-light.rasi).
+"""
+
+[feature.desktop.wallpapers]
+enabled = true
+description = "the wallpaper library itself — ~186 images under favorites/"
+stow = ["wallpapers"]
+requires = ["desktop.theming"]
+notes = """
+Split from desktop.theming so a machine can take the palette pipeline without
+the image library. Stows to ~/wallpapers. The images are gitignored, so a fresh
+clone gets the directory structure and none of the content — supply your own.
+`current`, `current.jpg` and `.current-blurred.jpg` are generated by applwal.sh;
+quickshell's wallpaper tab and create_thumbs.py both read favorites/.
+"""
+
+[feature.desktop.appearance]
+enabled = true
+description = "cursor theme, Qt/GTK styling to match the compositor env vars"
+pacman = [
+    "qt5ct",
+    "qt6ct",
+    "kvantum",
+    "adwaita-icon-theme", # .bashrc pins GTK_THEME to Adwaita:dark
+]
+aur = ["bibata-cursor-theme-bin"]
+requires = ["desktop.hyprland"]
+notes = "hyprland.lua pins XCURSOR/HYPRCURSOR to Bibata-Modern-Ice at size 25."
+
+# ===========================================================================
+# audio
+# ===========================================================================
+
+[feature.audio.pipewire]
+enabled = true
+description = "PipeWire stack — what the volume binds and the bar talk to"
+pacman = [
+    "pipewire",
+    "pipewire-pulse", # PulseAudio compatibility
+    "pipewire-alsa",  # ALSA compatibility
+    "wireplumber",    # the session manager wpctl drives
+    "playerctl",      # XF86Audio media keys in hyprland.lua
+    "alsa-utils",
+]
+services = ["--user pipewire", "--user pipewire-pulse", "--user wireplumber"]
+suggests = ["audio.mixer"]
+
+[feature.audio.mixer]
+enabled = true
+description = "pavucontrol — the GUI mixer for per-app routing"
+pacman = ["pavucontrol"]
+requires = ["audio.pipewire"]
+
+[feature.audio.mpd]
+enabled = false
+description = "mpd daemon, rmpc TUI client, MPRIS bridge for the bar"
+pacman = [
+    "mpd",
+    "mpc",
+    "rmpc",      # the TUI client; run it directly, there is no launcher script
+    "mpd-mpris", # exposes mpd over MPRIS so waybar/quickshell can see it
+]
+services = ["--user mpd", "--user mpd-mpris"]
+requires = ["audio.pipewire"]
+notes = "hyprland's start hook already launches mpd-mpris, so that exec fails while this is off."
+
+[feature.audio.visualizer]
+enabled = false
+description = "cava audio visualizer (config present but not wired up)"
+stow = ["cava"]
+pacman = ["cava"]
+requires = ["audio.pipewire"]
+notes = """
+cava is installed and ~/.config/cava is linked, but nothing here launches it and
+the feature is off for two reasons:
+  1. .config/cava/config is TRUNCATED — its first line reads `neral]` instead of
+     `[general]`, so cava cannot parse it. Repair that line before enabling.
+  2. It is set to `method = raw` / `data_format = ascii` / `bars = 10`, i.e. it
+     pipes into some other program — but no waybar module, quickshell panel or
+     hypr exec consumes that stream any more.
+The shaders/ and themes/ presets only apply to the SDL/ncurses outputs, so they
+are unused under `method = raw`.
+"""
+
+# ===========================================================================
+# net
+# ===========================================================================
+
+[feature.net.core]
+enabled = true
+description = "NetworkManager — backs the waybar network module and the wifi panel"
+pacman = ["networkmanager"]
+services = ["NetworkManager"]
+
+[feature.net.bluetooth]
+enabled = true
+description = "BlueZ — backs the bluetooth panel and the bar indicator"
+pacman = [
+    "bluez",
+    "bluez-utils", # bluetoothctl, and the waybar indicator
+]
+services = ["bluetooth"]
+
+[feature.net.syncthing]
+enabled = true
+description = "Syncthing file sync"
+pacman = ["syncthing"]
+requires = ["desktop.hyprland"]
+notes = """
+Started by hyprland's exec hook, NOT by systemd — the `syncthing.service` user
+unit is disabled on this machine. Enable that unit instead if you want it on a
+box with no compositor.
+"""
+
+[feature.net.kdeconnect]
+enabled = true
+description = "KDE Connect phone pairing"
+pacman = ["kdeconnect"]
+requires = ["desktop.hyprland"]
+notes = "hyprland's start hook runs kdeconnect-indicator; kdeconnectd is spawned by it."
+
+[feature.net.miniserve]
+enabled = true
+description = "miniserve — serves the firefox start page over localhost"
+pacman = ["miniserve"]
+notes = """
+hyprland's start hook runs it against $HOME/dotfiles/utils/firefox/ with
+--index home.html. Split out from apps.browser because it is a plain static
+server you may want for other directories too.
+"""
+
+# ===========================================================================
+# apps — one feature per app, so you take exactly what you want
+# ===========================================================================
+
+[feature.apps.browser]
+enabled = true
+description = "Firefox plus the org-backed start page (userChrome, org todo/agenda)"
+pacman = ["firefox"]
+requires = ["net.miniserve", "dev.python"]
+suggests = ["desktop.theming", "editor.neovim-org"]
+manual = [
+    "utils/firefox/install_systemd_service.sh — org-sync.path regenerates todo.js on org edits",
+    "Copy utils/firefox/chrome/ into the profile dir and set toolkit.legacyUserProfileCustomizations.stylesheets",
+]
+notes = """
+The start page's background (utils/firefox/current.jpg) is refreshed by applwal.sh.
+org-sync.py is stdlib-only, so dev.python's interpreter is all it needs.
+"""
+
+[feature.apps.clipboard]
+enabled = false
+description = "CopyQ clipboard history"
+pacman = ["copyq"]
+requires = ["desktop.hyprland"]
+notes = "Enabling this also needs `copyq --start-server` added back to hyprland.lua's start hook."
+
+[feature.apps.notes]
+enabled = false
+description = "Obsidian — the markdown vault app"
+pacman = ["obsidian"]
+notes = "The obsidian.nvim integration and its vault list were removed; this is the GUI app alone."
+
+[feature.apps.media]
+enabled = false
+description = "mpv video player"
+pacman = ["mpv"]
+
+[feature.apps.graphics]
+enabled = false
+description = "GIMP image editor"
+pacman = ["gimp"]
+
+[feature.apps.chat]
+enabled = false
+description = "Discord and Slack desktop clients"
+aur = ["webcord", "slack-desktop"]
+
+[feature.apps.music]
+enabled = false
+description = "Spotify desktop client"
+aur = ["spotify"]
+
+[feature.apps.code]
+enabled = false
+description = "VS Code, for the times neovim is not the answer"
+aur = ["visual-studio-code-bin"]
+
+# ===========================================================================
+# system
+# ===========================================================================
+
+[feature.system.dotfiles]
+enabled = true
+description = "GNU stow — the linker every other feature's `stow` list depends on"
+pacman = ["stow"]
+notes = "Always required. manager/main.py link drives it."
+
+[feature.system.fonts]
+enabled = true
+description = "Nerd Fonts — every bar, prompt and TUI here uses the glyphs"
+pacman = ["ttf-jetbrains-mono-nerd"]
+notes = """
+The family name every config asks for is "JetBrainsMono Nerd Font": waybar,
+rofi, kitty, ghostty, quickshell and the cava/starship glyphs all reference it.
+"""
+
+[feature.system.firmware]
+enabled = false
+description = "fwupd — firmware updates, driven by fwupdmgr directly"
+pacman = ["fwupd"]
+notes = "utils/firmware.sh is the two-line wrapper: get-updates then update."

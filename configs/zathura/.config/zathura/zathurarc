@@ -1,0 +1,55 @@
+
+set synctex-editor-command "nvim --remote-silent +%{line} %{input}"
+set synctex true
+# ==========================================
+# General Settings
+# ==========================================
+# Copy selected text to the system clipboard (instead of primary selection)
+set selection-clipboard clipboard
+
+# Automatically fit the document to the window width when opened
+set adjust-open "width"
+
+# Smooth scrolling settings
+set scroll-page-aware true
+set smooth-scroll true
+set scroll-step 50
+
+# Set the font for the status bar and index
+set font "monospace 10"
+
+# Hide the status bar by default (press 'Ctrl + m' to toggle)
+# set optionsbar-hidden true 
+
+# ==========================================
+# Document Recoloring (Dark Mode)
+# ==========================================
+# Automatically invert pages to dark mode (Toggle on/off with Ctrl + r)
+set recolor true
+
+# Keep the original colors of images and links when recoloring
+set recolor-keephue true
+
+# ==========================================
+# PyWal Colors
+# ==========================================
+set default-bg "#110d0a"
+set default-fg "#debda8"
+set statusbar-bg "#110d0a"
+set statusbar-fg "#debda8"
+set inputbar-bg "#110d0a"
+set inputbar-fg "#debda8"
+set notification-bg "#110d0a"
+set notification-fg "#debda8"
+set notification-error-bg "#A85932"
+set notification-error-fg "#debda8"
+set notification-warning-bg "#CF6234"
+set notification-warning-fg "#110d0a"
+set highlight-color "rgba(152, 106, 81, 0.2)"
+set highlight-active-color "rgba(180, 151, 116, 0.5)"
+set completion-bg "#110d0a"
+set completion-fg "#debda8"
+set completion-highlight-bg "#986A51"
+set completion-highlight-fg "#110d0a"
+set recolor-lightcolor "#110d0a"
+set recolor-darkcolor "#debda8"

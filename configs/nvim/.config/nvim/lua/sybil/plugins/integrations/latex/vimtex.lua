@@ -1,0 +1,38 @@
+return {}
+-- return {
+--     "lervag/vimtex",
+--     lazy = false, -- We don't want to lazy load VimTeX
+--     init = function()
+--         vim.g.vimtex_view_method = "zathura"
+--         vim.opt.updatetime = 100
+--         vim.g.vimtex_compiler_method = "latexmk"
+--         vim.g.vimtex_quickfix_ignore_filters = {
+--             "Underfull",
+--             "Overfull",
+--             "specifier changed to",
+--             "Token not allowed in a PDF string",
+--         }
+--         vim.g.vimtex_quickfix_mode = 0
+--         vim.g.vimtex_syntax_conceal = {
+--             accents = 1,
+--             cites = 1,
+--             fancy = 1,
+--             greek = 1,
+--             math_bounds = 1,
+--             math_delimiters = 1,
+--             math_fracs = 1,
+--             math_super_sub = 1,
+--             symbols = 1,
+--         }
+--         -- Enable VimTeX folding
+--         vim.g.vimtex_fold_enabled = 1
+--         vim.g.vimtex_fold_types = {
+--             comments = { enabled = true },
+--             -- envs = { whitelist = { "figure", "table", "equation", "itemize", "enumerate" } },
+--         }
+--
+--         -- Neovim fold settings
+--         vim.opt.foldenable = true
+--         vim.opt.foldlevelstart = 1 -- Start with everything folded
+--     end,
+-- }

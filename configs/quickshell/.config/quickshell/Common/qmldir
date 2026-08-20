@@ -1,0 +1,6 @@
+singleton Theme Theme.qml
+singleton Paths Paths.qml
+StyledText 1.0 StyledText.qml
+Card 1.0 Card.qml
+ToggleSwitch 1.0 ToggleSwitch.qml
+ValueSlider 1.0 ValueSlider.qml

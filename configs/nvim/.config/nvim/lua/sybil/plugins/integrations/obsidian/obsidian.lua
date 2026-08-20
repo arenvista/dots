@@ -1,0 +1,67 @@
+return {}
+-- local vault_list_path = "/home/sybil/dotfiles/utils/obsidianvaults/vaults.md"
+-- local my_vaults = {}
+--
+-- local f = io.open(vault_list_path, "r")
+-- if f then
+--     for line in f:lines() do
+--         local path = line:gsub("%s+", ""):gsub("/$", "")
+--         if path ~= "" and vim.fn.isdirectory(path) == 1 then
+--             local parent_path = vim.fn.fnamemodify(path, ":h")
+--             local vault_name = vim.fn.fnamemodify(parent_path, ":t")
+--             table.insert(my_vaults, {
+--                 name = vault_name,
+--                 path = path,
+--             })
+--         end
+--     end
+--     f:close()
+-- end
+--
+-- return {
+--     "obsidian-nvim/obsidian.nvim",
+--     lazy = true,
+--     ft = "markdown",
+--     dependencies = {
+--         "nvim-lua/plenary.nvim",
+--         "nvim-telescope/telescope.nvim",
+--     },
+--
+--     opts = {
+--         legacy_commands = false, -- 🔥 disable deprecated commands
+--         preferred_link_style = "markdown",
+--         workspaces = my_vaults,
+--
+--         templates = {
+--             folder = "./.templates",
+--             date_format = "%Y-%m-%d",
+--             time_format = "%H:%M",
+--             substitutions = {},
+--         },
+--
+--         completion = {
+--             nvim_cmp = true,
+--             min_chars = 2,
+--         },
+--         checkbox = {
+--             enabled = false,
+--             order = { " ", "x", "o" }, -- keep normal states
+--             cycle = false, -- 🚫 disable cycling on <CR>
+--         },
+--     },
+--
+--     config = function(_, opts)
+--         require("obsidian").setup(opts)
+--
+--         require("which-key").add({
+--             { "<leader>o", group = "Obsidian", icon = "💎", mode = { "n", "v" } },
+--             { "<leader>on", "<cmd>Obsidian new<cr>", desc = "New Obsidian note", mode = "n" },
+--             { "<leader>oo", "<cmd>Obsidian open<cr>", desc = "Open in Obsidian", mode = "n" },
+--             { "<leader>ob", "<cmd>Obsidian backlinks<cr>", desc = "Show backlinks", mode = "n" },
+--             { "<leader>op", "<cmd>Obsidian paste_img<cr>", desc = "Paste image", mode = "n" },
+--             { "<leader>of", "<cmd>Obsidian follow_link<cr>", desc = "Follow link", mode = "n" },
+--             { "<leader>ol", "<cmd>Obsidian link_new<cr>", desc = "Create new link", mode = "v" },
+--             { "<leader>os", "<cmd>ObsidianAliases<cr>", desc = "Search by Aliases", mode = "n" },
+--         })
+--     end,
+-- }

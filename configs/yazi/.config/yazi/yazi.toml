@@ -1,0 +1,29 @@
+# 2. Set the Openers and Rules
+[opener]
+nsxiv = [
+    { run = 'nsxiv "$@"', orphan = true, desc = "nsxiv" },
+]
+zathura = [
+    { run = 'zathura "$@"', orphan = true, desc = "zathura" },
+]
+nvim = [
+    { run = 'nvim "$@"', block = true, desc = "nvim" },
+]
+
+[open]
+# Hitting Enter uses the first matching rule below
+prepend_rules = [
+    # Image Rules: Match by mime-type
+    { mime = "image/*", use = "nsxiv" },
+
+    # PDF Rules: Match by extension (case-insensitive) OR mime-type
+    { url = "*.pdf", use = "zathura" },
+    { url = "*.PDF", use = "zathura" },
+    { mime = "application/pdf", use = "zathura" },
+
+    # Neovim Rules: Match by glob extension
+    { url = "*.{txt,md,py,sh,conf,lua,toml,json}", use = "nvim" },
+
+    # Fallback for text files without extension
+    { mime = "text/*", use = "nvim" },
+]
