@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>~/start</title>
+    <link rel="stylesheet" href="css/colors.css">
+    <style>
+        /* ── pywal → semantic ────────────────────────────────────────────── */
+        :root {
+            --bg:     var(--background, #1e1e2e);
+            --fg:     var(--foreground, #cdd6f4);
+            --red:    var(--color1, #f38ba8);
+            --green:  var(--color2, #a6e3a1);
+            --yellow: var(--color3, #f9e2af);
+            --blue:   var(--color4, #89b4fa);
+            --mauve:  var(--color5, #cba6f7);
+            --teal:   var(--color6, #94e2d5);
+
+            --muted:  color-mix(in srgb, var(--fg) 52%, transparent);
+            --faint:  color-mix(in srgb, var(--fg) 26%, transparent);
+            --pane:   color-mix(in srgb, var(--bg) 76%, transparent);
+            --chip:   color-mix(in srgb, var(--bg) 97%, black);
+            --edge:   color-mix(in srgb, var(--blue) 40%, transparent);
+
+            --gap: 10px;
+            --round: 8px;
+            --bar: 26px;
+            --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace,
+                    "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { color-scheme: dark; }
+
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-family: var(--mono);
+            font-size: 14px;
+            color: var(--fg);
+            background: var(--bg) url("current.jpg") center / cover no-repeat fixed;
+        }
+
+        /* scrim so text survives any wallpaper */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: color-mix(in srgb, var(--bg) 42%, transparent);
+            pointer-events: none;
+        }
+
+        :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+        /* ── panes ───────────────────────────────────────────────────────── */
+        .desktop {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: grid;
+            gap: var(--gap);
+            padding: var(--gap);
+            grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+            grid-template-rows: minmax(0, 1fr) auto auto;
+        }
+
+        .pane {
+            position: relative;
+            min-width: 0;
+            border: 1px solid var(--edge);
+            border-radius: var(--round);
+            background: var(--pane);
+            backdrop-filter: blur(16px) saturate(1.1);
+            -webkit-backdrop-filter: blur(16px) saturate(1.1);
+            padding: 22px 24px;
+        }
+
+        /* title notched into the top border, i3/hypr style */
+        .pane > .tag {
+            position: absolute;
+            top: -8px;
+            left: 16px;
+            padding: 0 8px;
+            background: var(--chip);
+            color: var(--blue);
+            font-size: 0.66rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+
+        .pane-clock  { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; }
+        .pane-prompt { grid-area: 2 / 1; padding: 16px 20px; cursor: text; }
+        .pane-sky    { grid-area: 3 / 1; }
+        .pane-agenda {
+            grid-area: 1 / 2 / 4 / 3;
+            padding: 22px 10px 16px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* ── clock ───────────────────────────────────────────────────────── */
+        .time {
+            font-size: clamp(3.2rem, 8.5vw, 7rem);
+            font-weight: 300;
+            line-height: 0.95;
+            letter-spacing: -0.04em;
+        }
+
+        .time .sec { font-size: 0.28em; color: var(--blue); letter-spacing: 0; margin-left: 0.35em; }
+        .time .ampm { font-size: 0.22em; color: var(--muted); letter-spacing: 0.2em; margin-left: 0.5em; }
+
+        .datestamp {
+            margin-top: 14px;
+            font-size: 0.78rem;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .greeting { margin-top: 6px; font-size: 0.9rem; color: var(--green); }
+        .greeting::before { content: "# "; color: var(--faint); }
+
+        /* year progress — real data, not decoration */
+        .yearbar { margin-top: 26px; max-width: 460px; }
+
+        .yearbar-head {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.68rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--faint);
+            margin-bottom: 6px;
+        }
+
+        .yearbar-track { height: 3px; background: color-mix(in srgb, var(--fg) 12%, transparent); }
+        .yearbar-fill { height: 100%; width: 0; background: var(--mauve); transition: width 0.9s ease; }
+
+        /* ── prompt ──────────────────────────────────────────────────────── */
+        .prompt-line { display: flex; align-items: center; gap: 10px; }
+        .cwd { color: var(--yellow); flex: none; }
+        .glyph { color: var(--green); flex: none; }
+        body.insert .glyph { color: var(--mauve); }
+
+        #search {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: none;
+            background: transparent;
+            color: var(--fg);
+            font: inherit;
+            outline: none;
+            caret-color: var(--mauve);
+        }
+
+        #search::placeholder { color: var(--faint); }
+
+        /* starship-style $fill + right prompt */
+        .fill {
+            flex: 0 0 clamp(24px, 8vw, 90px);
+            border-bottom: 1px dotted var(--faint);
+            align-self: flex-end;
+            margin-bottom: 6px;
+        }
+
+        .rprompt { flex: none; color: var(--teal); font-size: 0.82rem; }
+        .rprompt::before { content: "→ "; color: var(--faint); }
+
+        /* ── weather ─────────────────────────────────────────────────────── */
+        .sky { display: flex; align-items: center; gap: 18px; }
+        .sky-icon { width: 40px; height: 40px; flex: none; color: var(--yellow); }
+        .sky-icon svg { width: 100%; height: 100%; fill: currentColor; }
+        .sky-temp { font-size: 1.7rem; font-weight: 300; }
+        .sky-desc { font-size: 0.85rem; color: var(--muted); }
+
+        .sky-stats { margin-left: auto; text-align: right; font-size: 0.72rem; color: var(--muted); line-height: 1.7; }
+        .sky-stats b { color: var(--fg); font-weight: 400; }
+        .sky-status { font-size: 0.85rem; color: var(--faint); }
+        [hidden] { display: none !important; }
+
+        /* ── org agenda ──────────────────────────────────────────────────── */
+        .cal-top {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            padding-right: 12px;
+            font-size: 0.68rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--faint);
+        }
+
+        .cal-top b { font-weight: 400; color: var(--fg); }
+        .cal-top .over b, .cal-top .over { color: var(--red); }
+
+        .cal-flag {
+            position: absolute;
+            top: -8px;
+            right: 16px;
+            padding: 1px 7px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--bg);
+            background: var(--yellow);
+        }
+
+        .cal-list {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 12px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--faint) transparent;
+        }
+
+        .grp + .grp { margin-top: 20px; }
+
+        .grp-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding-bottom: 5px;
+            margin-bottom: 9px;
+            border-bottom: 1px solid var(--edge);
+            font-size: 0.66rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--blue);
+        }
+
+        .grp-head .away { color: var(--faint); letter-spacing: 0.12em; }
+
+        .grp-head.warn { color: var(--red); border-bottom-color: color-mix(in srgb, var(--red) 45%, transparent); }
+        .grp-head.quiet { color: var(--faint); }
+
+        .task {
+            display: grid;
+            grid-template-columns: 46px 2px minmax(0, 1fr);
+            gap: 10px;
+            padding: 5px 0;
+            align-items: start;
+        }
+
+        .task-gutter {
+            text-align: right;
+            font-size: 0.72rem;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .task-gutter span { display: block; font-size: 0.65rem; color: var(--faint); }
+
+        .pri-A { color: var(--red); }
+        .pri-B { color: var(--yellow); }
+        .pri-C { color: var(--faint); }
+
+        .task-rail { align-self: stretch; min-height: 20px; border-radius: 1px; background: var(--rail, var(--blue)); }
+
+        .task-title { font-size: 0.82rem; line-height: 1.4; }
+
+        .kw {
+            display: inline-block;
+            margin-right: 7px;
+            padding: 0 5px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            letter-spacing: 0.12em;
+            vertical-align: 1.5px;
+            color: var(--bg);
+            background: var(--kw, var(--blue));
+        }
+
+        .task-meta { margin-top: 3px; font-size: 0.67rem; color: var(--faint); }
+        .task-meta .due { color: var(--yellow); }
+        .task-meta .due.hot { color: var(--red); }
+        .task-meta .rep { color: var(--faint); }
+        .task.live .task-title { color: var(--green); }
+
+        .nowline {
+            display: grid;
+            grid-template-columns: 46px minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .nowline .lbl { text-align: right; font-size: 0.6rem; letter-spacing: 0.14em; color: var(--red); }
+        .nowline .rule { position: relative; height: 1px; background: var(--red); }
+
+        .nowline .rule::before {
+            content: "";
+            position: absolute;
+            left: -1px;
+            top: -2px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--red);
+        }
+
+        .cal-empty { font-size: 0.78rem; line-height: 1.9; color: var(--faint); }
+        .cal-empty code { color: var(--yellow); }
+
+        /* ── status bar ──────────────────────────────────────────────────── */
+        .statusbar {
+            flex: 0 0 var(--bar);
+            display: flex;
+            align-items: stretch;
+            gap: 2px;
+            margin: 0 var(--gap) var(--gap);
+            font-size: 0.74rem;
+            background: color-mix(in srgb, var(--bg) 88%, transparent);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: var(--round);
+            overflow: hidden;
+        }
+
+        #mode {
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            color: var(--bg);
+            background: var(--blue);
+        }
+
+        body.insert #mode { background: var(--mauve); }
+
+        .workspaces { display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: none; }
+        .workspaces::-webkit-scrollbar { display: none; }
+
+        .ws {
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            color: var(--muted);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .ws b { color: var(--blue); font-weight: 400; margin-right: 5px; }
+        .ws:hover, .ws:focus-visible { background: var(--blue); color: var(--bg); }
+        .ws:hover b, .ws:focus-visible b { color: var(--bg); }
+        body.normal .ws b { color: var(--mauve); }
+
+        .status-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 14px;
+            color: var(--faint);
+            white-space: nowrap;
+        }
+
+        .status-right .host { color: var(--teal); }
+
+        /* ── help ────────────────────────────────────────────────────────── */
+        .help {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: color-mix(in srgb, var(--bg) 80%, transparent);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .help-pane {
+            width: min(92%, 520px);
+            padding: 26px 28px;
+            border: 1px solid var(--edge);
+            border-radius: var(--round);
+            background: var(--chip);
+        }
+
+        .help-pane h2 {
+            font-size: 0.68rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--blue);
+            margin-bottom: 16px;
+        }
+
+        .help-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 6px 0;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .help-row span:first-child { color: var(--fg); }
+        .help-sep { margin: 14px 0 8px; border-top: 1px solid var(--edge); }
+
+        /* ── narrow ──────────────────────────────────────────────────────── */
+        @media (max-width: 950px) {
+            .desktop { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); }
+            .pane-clock { grid-area: 1 / 1; }
+            .pane-prompt { grid-area: 2 / 1; }
+            .pane-sky { grid-area: 3 / 1; }
+            .pane-agenda { grid-area: 4 / 1; min-height: 240px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
+        }
+    </style>
+</head>
+
+<body class="insert">
+    <div class="desktop">
+        <section class="pane pane-clock">
+            <span class="tag">clock</span>
+            <div class="time" id="time">--:--</div>
+            <div class="datestamp" id="datestamp"></div>
+            <div class="greeting" id="greeting">welcome back</div>
+
+            <div class="yearbar">
+                <div class="yearbar-head">
+                    <span id="year-label">2026</span>
+                    <span id="year-pct"></span>
+                </div>
+                <div class="yearbar-track"><div class="yearbar-fill" id="year-fill"></div></div>
+            </div>
+        </section>
+
+        <section class="pane pane-prompt" id="prompt-pane">
+            <span class="tag">search</span>
+            <div class="prompt-line">
+                <span class="cwd">~/start</span>
+                <span class="glyph">❯</span>
+                <input id="search" type="text" placeholder="query, bang, or url"
+                       autocomplete="off" spellcheck="false" autofocus>
+                <span class="fill"></span>
+                <span class="rprompt" id="rprompt">google</span>
+            </div>
+        </section>
+
+        <section class="pane pane-sky">
+            <span class="tag">weather</span>
+            <p class="sky-status" id="sky-status">reading the sky…</p>
+            <div class="sky" id="sky" hidden>
+                <div class="sky-icon" id="sky-icon"></div>
+                <div>
+                    <div class="sky-temp" id="sky-temp">--°</div>
+                    <div class="sky-desc" id="sky-desc">--</div>
+                </div>
+                <div class="sky-stats">
+                    <div>feels <b id="sky-feels">--°</b></div>
+                    <div>hi <b id="sky-hi">--°</b> · lo <b id="sky-lo">--°</b></div>
+                    <div id="sky-place">Glen Burnie, MD</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="pane pane-agenda">
+            <span class="tag">org</span>
+            <div class="cal-top" id="cal-counts"></div>
+            <div class="cal-list" id="cal-list"></div>
+            <span class="cal-flag" id="cal-flag" hidden>stale</span>
+        </section>
+    </div>
+
+    <div class="statusbar">
+        <div id="mode">INSERT</div>
+        <nav class="workspaces" id="workspaces">
+            <a class="ws" data-key="1" href="https://gemini.google.com/app"><b>1</b>gemini</a>
+            <a class="ws" data-key="2" href="https://www.github.com"><b>2</b>github</a>
+            <a class="ws" data-key="3" href="https://mail.google.com"><b>3</b>mail</a>
+            <a class="ws" data-key="4" href="https://calendar.google.com"><b>4</b>cal</a>
+            <a class="ws" data-key="5" href="https://drive.google.com"><b>5</b>drive</a>
+            <a class="ws" data-key="6" href="https://blackboard.umbc.edu/"><b>6</b>bb</a>
+            <a class="ws" data-key="7" href="https://portfolio.arenvista.me/"><b>7</b>folio</a>
+        </nav>
+        <div class="status-right">
+            <span id="weeknum"></span>
+            <span>? keys</span>
+            <span class="host">sybil@arch</span>
+        </div>
+    </div>
+
+    <div class="help" id="help" hidden>
+        <div class="help-pane">
+            <h2>keys</h2>
+            <div class="help-row"><span>esc</span><span>normal mode — digits jump</span></div>
+            <div class="help-row"><span>i · /</span><span>insert mode — type to search</span></div>
+            <div class="help-row"><span>1–7</span><span>open a workspace link</span></div>
+            <div class="help-row"><span>?</span><span>toggle this panel</span></div>
+            <div class="help-sep"></div>
+            <h2>bangs</h2>
+            <div id="bang-list"></div>
+        </div>
+    </div>
+
+    <!-- generated by org-sync.py; absent file just shows a setup hint -->
+    <script src="todo.js"></script>
+
+    <script>
+    /* ══ config ══════════════════════════════════════════════════════════ */
+    const CONFIG = {
+        name: "aren",
+        weather: { lat: 39.16, lon: -76.62, label: "Glen Burnie, MD", unit: "fahrenheit", cacheMinutes: 15 },
+        agenda: { staleHours: 12 },
+        search: {
+            engine: { name: "google", url: "https://www.google.com/search?q=" },
+            bangs: {
+                gh:  { name: "github",    url: "https://github.com/search?q=" },
+                aw:  { name: "archwiki",  url: "https://wiki.archlinux.org/index.php?search=" },
+                aur: { name: "aur",       url: "https://aur.archlinux.org/packages?K=" },
+                w:   { name: "wikipedia", url: "https://en.wikipedia.org/w/index.php?search=" },
+                y:   { name: "youtube",   url: "https://www.youtube.com/results?search_query=" },
+                r:   { name: "reddit",    url: "https://www.reddit.com/search/?q=" },
+                so:  { name: "stackoverflow", url: "https://stackoverflow.com/search?q=" },
+                ar:  { name: "arxiv",     url: "https://arxiv.org/abs/" },
+                d:   { name: "duckduckgo",url: "https://duckduckgo.com/?q=" },
+            },
+        },
+    };
+
+    const el = id => document.getElementById(id);
+
+    /* ══ clock, date, year progress ══════════════════════════════════════ */
+    const timeEl = el("time");
+
+    function tick() {
+        const now = new Date();
+        const h24 = now.getHours();
+        const h = h24 % 12 || 12;
+        const m = String(now.getMinutes()).padStart(2, "0");
+        const s = String(now.getSeconds()).padStart(2, "0");
+
+        timeEl.innerHTML =
+            `${h}:${m}<span class="sec">${s}</span><span class="ampm">${h24 >= 12 ? "pm" : "am"}</span>`;
+
+        el("datestamp").textContent = now.toLocaleDateString(undefined,
+            { weekday: "long", month: "short", day: "numeric" });
+
+        const part = h24 < 5 ? "still up" : h24 < 12 ? "good morning"
+                   : h24 < 18 ? "good afternoon" : "good evening";
+        el("greeting").textContent = CONFIG.name ? `${part}, ${CONFIG.name}` : part;
+    }
+
+    function yearProgress() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const start = new Date(y, 0, 1);
+        const total = (new Date(y + 1, 0, 1) - start) / 86400000;
+        const day = Math.floor((now - start) / 86400000) + 1;
+        const pct = ((now - start) / (total * 86400000)) * 100;
+
+        el("year-label").textContent = `${y} · day ${day}/${Math.round(total)}`;
+        el("year-pct").textContent = `${pct.toFixed(1)}%`;
+        el("year-fill").style.width = `${pct}%`;
+
+        const jan1 = new Date(y, 0, 1);
+        el("weeknum").textContent = `wk ${Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7)}`;
+    }
+
+    tick(); yearProgress();
+    setInterval(tick, 1000);
+
+    /* ══ weather ═════════════════════════════════════════════════════════ */
+    const ICONS = {
+        sun: `<circle cx="12" cy="12" r="5"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M19.8 4.2l-2.1 2.1M6.3 17.7l-2.1 2.1"/></g>`,
+        moon: `<mask id="mc"><rect width="24" height="24" fill="#fff"/><circle cx="17.5" cy="7" r="8" fill="#000"/></mask><circle cx="12" cy="12" r="9" mask="url(#mc)"/>`,
+        cloud: `<circle cx="8" cy="13" r="4"/><circle cx="12.5" cy="10.5" r="5"/><circle cx="16.5" cy="13.5" r="3.5"/><rect x="7" y="13" width="10" height="4" rx="2"/>`,
+        rain: `<circle cx="8" cy="10" r="3.5"/><circle cx="12.5" cy="8" r="4.5"/><circle cx="16.5" cy="10.5" r="3"/><rect x="7" y="10" width="10" height="3.5" rx="1.75"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><path d="M8.5 17v3M12 17.5v3.5M15.5 17v3"/></g>`,
+        snow: `<circle cx="8" cy="10" r="3.5"/><circle cx="12.5" cy="8" r="4.5"/><circle cx="16.5" cy="10.5" r="3"/><rect x="7" y="10" width="10" height="3.5" rx="1.75"/><circle cx="8.5" cy="18.5" r="1.3"/><circle cx="12.5" cy="20" r="1.3"/><circle cx="16" cy="18.5" r="1.3"/>`,
+        fog: `<circle cx="8" cy="9" r="3.5"/><circle cx="12.5" cy="7" r="4.5"/><circle cx="16.5" cy="9.5" r="3"/><rect x="7" y="9" width="10" height="3.5" rx="1.75"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"><path d="M4.5 16h15M6.5 20h11"/></g>`,
+        bolt: `<circle cx="8" cy="9" r="3.5"/><circle cx="12.5" cy="7" r="4.5"/><circle cx="16.5" cy="9.5" r="3"/><rect x="7" y="9" width="10" height="3.5" rx="1.75"/><path d="M13.5 13l-5 6h3l-1.5 5 5.5-7h-3z"/>`,
+        cloudSun: `<circle cx="17" cy="7" r="3.2"/><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"><path d="M17 1.4v1.6M17 11v1.6M11.4 7H13M21 7h1.6M13.1 3.1l1.1 1.1M19.8 9.8l1.1 1.1M20.9 3.1l-1.1 1.1M14.2 9.8l-1.1 1.1"/></g><circle cx="7" cy="15" r="4"/><circle cx="11.5" cy="13" r="4.5"/><rect x="6" y="15" width="8" height="4" rx="2"/>`,
+    };
+
+    function describe(code, isDay) {
+        if (code === 0)  return { desc: "clear sky",     icon: isDay ? ICONS.sun : ICONS.moon };
+        if (code <= 2)   return { desc: "partly cloudy", icon: isDay ? ICONS.cloudSun : ICONS.moon };
+        if (code === 3)  return { desc: "overcast",      icon: ICONS.cloud };
+        if (code <= 48)  return { desc: "fog",           icon: ICONS.fog };
+        if (code <= 57)  return { desc: "drizzle",       icon: ICONS.rain };
+        if (code <= 67)  return { desc: "rain",          icon: ICONS.rain };
+        if (code <= 77)  return { desc: "snow",          icon: ICONS.snow };
+        if (code <= 82)  return { desc: "rain showers",  icon: ICONS.rain };
+        if (code <= 86)  return { desc: "snow showers",  icon: ICONS.snow };
+        return { desc: "thunderstorm", icon: ICONS.bolt };
+    }
+
+    const store = {
+        get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+        set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private window */ } },
+    };
+
+    function paintSky(w) {
+        const u = CONFIG.weather.unit === "celsius" ? "C" : "F";
+        const { desc, icon } = describe(w.code, w.isDay);
+        el("sky-icon").innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>`;
+        el("sky-temp").textContent  = `${Math.round(w.temp)}°${u}`;
+        el("sky-desc").textContent  = desc;
+        el("sky-feels").textContent = `${Math.round(w.feels)}°`;
+        el("sky-hi").textContent    = `${Math.round(w.hi)}°`;
+        el("sky-lo").textContent    = `${Math.round(w.lo)}°`;
+        el("sky-place").textContent = CONFIG.weather.label;
+        el("sky-status").hidden = true;
+        el("sky").hidden = false;
+    }
+
+    async function loadSky() {
+        const cached = store.get("weather");
+        if (cached && Date.now() - cached.at < CONFIG.weather.cacheMinutes * 60000) {
+            paintSky(cached);
+            return;
+        }
+        const { lat, lon, unit } = CONFIG.weather;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`
+            + `&current=temperature_2m,apparent_temperature,weather_code,is_day`
+            + `&daily=temperature_2m_max,temperature_2m_min`
+            + `&temperature_unit=${unit}&forecast_days=1&timezone=auto`;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(res.status);
+            const d = await res.json();
+            const w = {
+                temp: d.current.temperature_2m,
+                feels: d.current.apparent_temperature,
+                code: d.current.weather_code,
+                isDay: d.current.is_day === 1,
+                hi: d.daily.temperature_2m_max[0],
+                lo: d.daily.temperature_2m_min[0],
+                at: Date.now(),
+            };
+            store.set("weather", w);
+            paintSky(w);
+        } catch (err) {
+            if (cached) { paintSky(cached); return; }
+            el("sky-status").textContent = "weather unreachable — retrying shortly";
+            console.error("weather:", err);
+        }
+    }
+    loadSky();
+    setInterval(loadSky, CONFIG.weather.cacheMinutes * 60000);
+
+    /* ══ org agenda ══════════════════════════════════════════════════════
+       Data comes from window.ORG, written by org-sync.py. It is a <script
+       src>, not a fetch, because file:// documents get an opaque origin and
+       would fail CORS reading a sibling .org file.                          */
+    const RAILS = ["var(--blue)", "var(--mauve)", "var(--teal)",
+                   "var(--yellow)", "var(--green)", "var(--red)"];
+
+    const KW_COLOR = {
+        TODO: "var(--blue)",  NEXT: "var(--mauve)", STRT: "var(--green)",
+        STARTED: "var(--green)", WAIT: "var(--yellow)", WAITING: "var(--yellow)",
+        HOLD: "var(--yellow)", PROJ: "var(--teal)", IDEA: "var(--teal)",
+    };
+
+    const DAY = 86400000;
+    const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    /* "2026-08-01" must not go through Date.parse — that reads it as UTC and
+       can land on the wrong day west of Greenwich. */
+    function ymd(value, clock) {
+        const [y, m, d] = value.split("-").map(Number);
+        const [h, mi] = clock ? clock.split(":").map(Number) : [0, 0];
+        return new Date(y, m - 1, d, h, mi);
+    }
+
+    function clockText(d) {
+        const h = d.getHours();
+        return `${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}${h >= 12 ? "p" : "a"}`;
+    }
+
+    const shortDate = d => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+    const esc = s => String(s).replace(/[&<>"]/g,
+        c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    function dayLabel(day, today) {
+        const diff = Math.round((day - today) / DAY);
+        if (diff === 0) return "today";
+        if (diff === 1) return "tomorrow";
+        if (diff < 7) return day.toLocaleDateString(undefined, { weekday: "long" });
+        return day.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    }
+
+    function taskRow(item, now, today) {
+        const rail = item.railColor || RAILS[(item.color ?? 0) % RAILS.length];
+        const start = item.date ? ymd(item.date, item.time) : null;
+        const end = item.endTime ? ymd(item.date, item.endTime) : null;
+        const live = start && item.time && end && start <= now && end > now;
+
+        /* gutter: the clock if it has one, otherwise the priority letter */
+        let gutter = "";
+        if (item.time) {
+            gutter = clockText(start) + (item.endTime ? `<span>${clockText(end)}</span>` : "");
+        } else if (item.priority) {
+            gutter = `<span class="pri-${item.priority}" style="font-size:.72rem">#${item.priority}</span>`;
+        }
+
+        const bits = [];
+        if (item.crumb) bits.push(esc(item.crumb));
+        else if (item.category) bits.push(esc(item.category));
+        if (item.tags?.length) bits.push(item.tags.map(esc).join(" "));
+        if (item.progress) {
+            bits.push(item.progress.total
+                ? `${item.progress.done}/${item.progress.total}`
+                : `${item.progress.pct}%`);
+        }
+        if (item.repeat) bits.push(`<span class="rep">repeats</span>`);
+
+        /* a deadline elsewhere in the horizon is the thing you actually want warned about */
+        if (item.deadline && item.kind !== "deadline") {
+            const due = ymd(item.deadline);
+            const days = Math.round((startOfDay(due) - today) / DAY);
+            bits.push(`<span class="due${days <= 2 ? " hot" : ""}">due ${
+                days === 0 ? "today" : days === 1 ? "tomorrow" : shortDate(due)}</span>`);
+        } else if (item.kind === "deadline") {
+            bits.push(`<span class="due hot">deadline</span>`);
+        }
+
+        const kw = item.keyword
+            ? `<span class="kw" style="--kw:${KW_COLOR[item.keyword] || "var(--blue)"}">${esc(item.keyword)}</span>`
+            : "";
+        const pri = item.priority && item.time
+            ? `<span class="pri-${item.priority}">#${item.priority} </span>` : "";
+
+        return `<div class="task${live ? " live" : ""}" style="--rail:${rail}">
+            <div class="task-gutter">${gutter}</div>
+            <div class="task-rail"></div>
+            <div>
+                <div class="task-title">${kw}${pri}${esc(item.title)}</div>
+                ${bits.length ? `<div class="task-meta">${bits.join(" · ")}</div>` : ""}
+            </div>
+        </div>`;
+    }
+
+    function group(title, away, rows, cls = "") {
+        return `<section class="grp"><div class="grp-head ${cls}">
+            <span>${title}</span><span class="away">${away}</span>
+        </div>${rows}</section>`;
+    }
+
+    function renderAgenda() {
+        const list = el("cal-list"), counts = el("cal-counts"), flag = el("cal-flag");
+        const data = window.ORG;
+
+        if (!data) {
+            counts.innerHTML = "<span>no feed</span>";
+            list.innerHTML = `<p class="cal-empty">No <code>todo.js</code> yet.<br>
+                Point <code>org-sync.py</code> at your org files and run it.</p>`;
+            return;
+        }
+
+        const now = new Date();
+        const today = startOfDay(now);
+        flag.hidden = !(data.generated &&
+            now - new Date(data.generated) > CONFIG.agenda.staleHours * 3600000);
+
+        const items = data.items || [];
+        const dated = items.filter(i => i.date);
+        const backlog = items.filter(i => !i.date);
+        const overdue = dated.filter(i => ymd(i.date) < today);
+        const upcoming = dated.filter(i => ymd(i.date) >= today);
+        const todayCount = upcoming.filter(i => +ymd(i.date) === +today).length;
+
+        counts.innerHTML = [
+            overdue.length ? `<span class="over"><b>${overdue.length}</b> overdue</span>` : "",
+            `<span><b>${todayCount}</b> today</span>`,
+            `<span><b>${dated.length + (data.counts?.backlog ?? backlog.length)}</b> open</span>`,
+        ].filter(Boolean).join("");
+
+        if (!items.length) {
+            list.innerHTML = `<p class="cal-empty">Nothing open. Enjoy it.</p>`;
+            return;
+        }
+
+        let html = "";
+
+        if (overdue.length) {
+            html += group("overdue", `${overdue.length} item${overdue.length > 1 ? "s" : ""}`,
+                overdue.map(i => taskRow(i, now, today)).join(""), "warn");
+        }
+
+        /* day buckets */
+        const days = new Map();
+        for (const item of upcoming) {
+            const key = item.date;
+            if (!days.has(key)) days.set(key, []);
+            days.get(key).push(item);
+        }
+
+        /* today always gets a row, even when empty — it's what the now-line hangs on */
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
+                       + `-${String(today.getDate()).padStart(2, "0")}`;
+        const buckets = [...days];
+        if (!days.has(todayKey)) buckets.unshift([todayKey, []]);
+
+        for (const [key, bucket] of buckets) {
+            const day = ymd(key);
+            const isToday = +day === +today;
+            let rows = "";
+            let nowPlaced = !isToday;
+
+            for (const item of bucket) {
+                if (!nowPlaced && item.time && ymd(item.date, item.time) > now) {
+                    rows += `<div class="nowline"><span class="lbl">${clockText(now)}</span><span class="rule"></span></div>`;
+                    nowPlaced = true;
+                }
+                rows += taskRow(item, now, today);
+            }
+            if (!nowPlaced) {
+                rows += `<div class="nowline"><span class="lbl">${clockText(now)}</span><span class="rule"></span></div>`;
+            }
+            html += group(dayLabel(day, today), shortDate(day), rows);
+        }
+
+        if (backlog.length) {
+            const total = data.counts?.backlog ?? backlog.length;
+            const away = total > backlog.length ? `${backlog.length} of ${total}` : `${total}`;
+            html += group("backlog", away, backlog.map(i => taskRow(i, now, today)).join(""), "quiet");
+        }
+
+        list.innerHTML = html;
+    }
+
+    renderAgenda();
+    setInterval(renderAgenda, 60000);
+
+    /* ══ search ══════════════════════════════════════════════════════════ */
+    const searchEl = el("search"), rprompt = el("rprompt");
+    const looksLikeUrl = s =>
+        /^(https?:\/\/|localhost)/i.test(s) || /^[\w-]+(\.[\w-]+)+(\/|$|:\d)/.test(s);
+
+    function resolve(raw) {
+        const q = raw.trim();
+        if (!q) return null;
+        const [head, ...rest] = q.split(/\s+/);
+        const bang = CONFIG.search.bangs[head.toLowerCase()];
+        if (bang && rest.length) return { name: bang.name, href: bang.url + encodeURIComponent(rest.join(" ")) };
+        if (looksLikeUrl(q)) return { name: "open", href: /^https?:\/\//i.test(q) ? q : `https://${q}` };
+        return { name: CONFIG.search.engine.name, href: CONFIG.search.engine.url + encodeURIComponent(q) };
+    }
+
+    searchEl.addEventListener("input", () => {
+        const hit = resolve(searchEl.value);
+        rprompt.textContent = hit ? hit.name : CONFIG.search.engine.name;
+    });
+
+    searchEl.addEventListener("keydown", e => {
+        if (e.key !== "Enter") return;
+        const hit = resolve(searchEl.value);
+        if (hit) window.location.href = hit.href;
+    });
+
+    el("prompt-pane").addEventListener("click", () => searchEl.focus());
+
+    /* ══ modes ═══════════════════════════════════════════════════════════ */
+    const modeEl = el("mode"), helpEl = el("help");
+
+    function setMode(mode) {
+        document.body.classList.toggle("insert", mode === "insert");
+        document.body.classList.toggle("normal", mode === "normal");
+        modeEl.textContent = mode.toUpperCase();
+        if (mode === "insert") searchEl.focus(); else searchEl.blur();
+    }
+
+    searchEl.addEventListener("focus", () => setMode("insert"));
+    searchEl.addEventListener("blur",  () => setMode("normal"));
+
+    const links = new Map(
+        [...document.querySelectorAll(".ws")].map(a => [a.dataset.key, a])
+    );
+
+    document.addEventListener("keydown", e => {
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        const typing = document.activeElement === searchEl;
+
+        if (e.key === "Escape") {
+            if (!helpEl.hidden) { helpEl.hidden = true; return; }
+            setMode("normal");
+            return;
+        }
+        if (typing) return;
+
+        if (e.key === "?") { helpEl.hidden = !helpEl.hidden; return; }
+        if (e.key === "i" || e.key === "/") { e.preventDefault(); setMode("insert"); return; }
+
+        const link = links.get(e.key);
+        if (link) { e.preventDefault(); window.location.href = link.href; }
+    });
+
+    helpEl.addEventListener("click", e => { if (e.target === helpEl) helpEl.hidden = true; });
+
+    /* keep the help panel honest — built from CONFIG, never hand-edited */
+    el("bang-list").innerHTML = Object.entries(CONFIG.search.bangs)
+        .map(([k, v]) => `<div class="help-row"><span>${k} &lt;query&gt;</span><span>${v.name}</span></div>`)
+        .join("");
+    </script>
+</body>
+
+</html>

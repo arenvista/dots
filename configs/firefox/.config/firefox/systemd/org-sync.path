@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch org files
+
+[Path]
+PathChanged=/home/sybil/orgfiles
+Unit=org-sync.service
+
+[Install]
+WantedBy=default.target

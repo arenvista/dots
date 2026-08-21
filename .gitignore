@@ -24,6 +24,12 @@ configs/nvim/.config/node_modules/
 configs/nvim/.config/package-lock.json
 configs/nvim/.config/yarn.lock
 
+# applwal.sh rewrites the firefox start page's background on every wallpaper
+# change, and ~/.config/firefox is stow-linked back into this package, so the
+# resized copy would otherwise churn in the tree as a ~500KB binary diff.
+configs/firefox/.config/firefox/current.jpg
+configs/firefox/.config/firefox/todo.js
+
 # --- editor / OS ----------------------------------------------------------
 *.swp
 *.swo

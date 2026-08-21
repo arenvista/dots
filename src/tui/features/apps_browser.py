@@ -1,7 +1,8 @@
 """apps.browser — Firefox plus the org-backed start page (userChrome, todo/calendar)
 
-The start page's background is refreshed by applwal.sh. org-sync.py is
-stdlib-only.
+The firefox stow package lands the start page at ~/.config/firefox/, where
+net.miniserve serves it and applwal.sh refreshes its background. org-sync.py
+is stdlib-only.
 """
 
 from __future__ import annotations
@@ -13,12 +14,12 @@ SETUP = FeatureSetup(
     steps=(
         SetupStep(
             'firefox org-sync unit',
-            'test -x utils/firefox/install_systemd_service.sh && utils/firefox/install_systemd_service.sh',
+            'test -x "$HOME/.config/firefox/install_systemd_service.sh" && "$HOME/.config/firefox/install_systemd_service.sh"',
             when='post',
         ),
         SetupStep(
             'userChrome',
-            'copy utils/firefox/chrome/ into the profile dir and set toolkit.legacyUserProfileCustomizations.stylesheets',
+            'copy ~/.config/firefox/chrome/ into the profile dir and set toolkit.legacyUserProfileCustomizations.stylesheets',
             when='post', interactive=True,
         ),
     ),

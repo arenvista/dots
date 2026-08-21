@@ -20,7 +20,7 @@ read -r MON_WIDTH MON_HEIGHT < <(
 MON_RES="${MON_WIDTH}x${MON_HEIGHT}"
 
 OUTPUT_PATH_SWWW="$HOME/wallpapers/current.jpg"
-OUTPUT_PATH_FIREFOX="$HOME/dotfiles/utils/firefox/current.jpg"
+OUTPUT_PATH_FIREFOX="$HOME/.config/firefox/current.jpg"
 
 magick "$WALLPAPER_PATH" -resize "${MON_RES}^" -gravity center -extent "$MON_RES" "$OUTPUT_PATH_SWWW"
 magick "$WALLPAPER_PATH" -resize "${MON_RES}^" -gravity center -extent "$MON_RES" "$OUTPUT_PATH_FIREFOX"
@@ -35,9 +35,11 @@ sleep 1
 # Per-app colorizers.
 python "$HOME/.config/zathura/templater.py"
 python "$HOME/.config/quickshell/scripts/ghosty-colorizer.py"
+python "$HOME/.config/quickshell/scripts/kitty-colorizer.py"
 
-# Signal ghostty to reload its colors.
+# Signal ghostty and kitty to reload their colors.
 pkill -SIGUSR2 ghostty
+pkill -SIGUSR1 kitty 2>/dev/null
 
 # Restart waybar with the fresh palette.
 killall waybar 2>/dev/null

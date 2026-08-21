@@ -112,11 +112,11 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "1" }) 
 -- WORKSPACE RULES ------------------------------------------------------------
 -- 1-2 on the laptop panel, 3-10 on the superultrawide.
 
-hl.workspace_rule({ workspace = "11", monitor = "HDMI-A-1", default = false })
+-- hl.workspace_rule({ workspace = "1", default = false })
 
-for i = 1, 10 do
-    hl.workspace_rule({ workspace = tostring(i), monitor = "DP-2" })
-end
+-- for i = 1, 10 do
+--     hl.workspace_rule({ workspace = tostring(i), monitor = "DP-2" })
+-- end
 
 -- ANIMATION CURVES -----------------------------------------------------------
 
@@ -148,7 +148,7 @@ end
 -- DEFAULT PROGRAMS -----------------------------------------------------------
 
 local terminal = "kitty"
-local fileManager = "ghostty -e yazi"
+local fileManager = "kitty -e yazi"
 -- Fixed quoting: the wallpaper path is now interpolated once, cleanly, and ~
 -- is expanded in Lua rather than hoping the shell/rofi does it inside quotes.
 local menu = "rofi -show drun -theme-str \"dummywall{background-image:url('"
@@ -405,6 +405,6 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("kdeconnect-indicator")
     hl.exec_cmd("syncthing")
     hl.exec_cmd(
-        'miniserve "$HOME/dotfiles/utils/firefox/" --index home.html --header "Cache-Control: no-cache, no-store, must-revalidate"'
+        'miniserve "$HOME/.config/firefox/" --index home.html --header "Cache-Control: no-cache, no-store, must-revalidate"'
     )
 end)

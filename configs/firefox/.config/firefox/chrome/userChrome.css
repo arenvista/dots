@@ -1,0 +1,330 @@
+/* ==========================================================================
+   userChrome.css — translucent Firefox chrome; the whole top bar slides
+   off-screen (translateY) until the top edge is hovered or it has focus
+   Drop in ~/.mozilla/firefox/<profile>/chrome/userChrome.css
+
+   Requires in about:config:
+     toolkit.legacyUserProfileCustomizations.stylesheets = true
+
+   Requires a compositor that honors ARGB visuals (Hyprland does).
+   Restart Firefox after every edit — no live reload.
+   ========================================================================== */
+
+/* No @namespace here on purpose: browser.xhtml's root and much of the chrome
+   are HTML, so a default XUL namespace stops `:root` and HTML-element
+   selectors from matching — which silently disables the autohide vars. */
+
+/* --------------------------------------------------------------------------
+   Tunables — colors as bare "r, g, b" triplets so alpha can be varied per rule
+   -------------------------------------------------------------------------- */
+:root {
+  --t-bg:        30, 30, 46;    /* base       */
+  --t-bg-alt:    24, 24, 37;    /* mantle     */
+  --t-surface:   49, 50, 68;    /* surface0   */
+  --t-fg:       205, 214, 244;  /* text       */
+  --t-muted:    166, 173, 200;  /* subtext0   */
+  --t-accent:   137, 180, 250;  /* blue       */
+
+  --t-alpha:        0.60;  /* toolbars, tab bar                    */
+  --t-alpha-solid:  0.85;  /* popups, menus — keep these readable  */
+  --t-alpha-hover:  0.28;  /* hover/active tints                   */
+
+  --t-radius: 8px;
+
+  /* Slide */
+  --t-zone:         40px;  /* height of the invisible wake strip at the top
+                              edge while the bar is hidden. Also: how far
+                              below the revealed bar the mouse may drift
+                              before it re-hides. Keep it under ~100px or
+                              the bar will linger annoyingly.           */
+  --t-reveal:       90ms;  /* slide-in speed                          */
+  --t-reveal-delay: 60ms;  /* hover intent — grazing the edge won't
+                              flash the bar in                        */
+  --t-hide-speed:   120ms; /* slide-out speed                         */
+  --t-hide-delay:   300ms; /* grace period before it slides away      */
+}
+
+/* --------------------------------------------------------------------------
+   Kill the opaque base layers
+   Firefox paints several stacked backgrounds; each one has to be cleared
+   or the alpha below never reaches the compositor.
+   -------------------------------------------------------------------------- */
+#main-window,
+#navigator-toolbox,
+#navigator-toolbox-background,
+#titlebar,
+#toolbar-menubar,
+#TabsToolbar,
+#tab-notification-deck,
+#sidebar-box,
+#sidebar-header {
+  background: transparent !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+:root {
+  --lwt-accent-color: transparent !important;
+  --lwt-accent-color-inactive: transparent !important;
+  --toolbar-bgcolor: transparent !important;
+  --tab-selected-bgcolor: transparent !important;
+  --toolbox-non-lwt-bgcolor: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   The single translucent pane behind the whole chrome
+   One layer instead of per-toolbar tints — avoids visible alpha seams where
+   two translucent surfaces overlap.
+   -------------------------------------------------------------------------- */
+#navigator-toolbox {
+  background: rgba(var(--t-bg), var(--t-alpha)) !important;
+  border-bottom: 1px solid rgba(var(--t-surface), 0.6) !important;
+  color: rgb(var(--t-fg)) !important;
+}
+
+#nav-bar,
+#PersonalToolbar {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Slide the chrome away — translateY autohide
+   The whole toolbox (tabs, URL bar, bookmarks, buttons) is lifted out of
+   the page layout (position: fixed, so the page never shifts) and slid up
+   off-screen, with an invisible --t-zone-tall wake strip left at the top
+   edge for the mouse to find. It slides back down over the page on hover,
+   on keyboard focus (Ctrl+L, Ctrl+T), while a panel/doorhanger or the
+   urlbar dropdown is open, during tab drags, and in Customize mode.
+
+   Because the revealed bar overlays the page, page content (not the
+   wallpaper) shows through its translucent background.
+   -------------------------------------------------------------------------- */
+#navigator-toolbox {
+  position: fixed !important;
+  display: block;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* !important is load-bearing: userChrome.css is a user-origin sheet, so
+     without it Firefox's own author-origin rule wins — and Fx153 pins the
+     toolbox at z-index 0 with the content area at 2, which makes the bar
+     reveal invisibly BEHIND the page and kills hover on the wake strip.
+     5 clears every --browser-area-z-index-* layer (max is 4). */
+  z-index: 5 !important;
+  /* Slide fully off-screen except a 1px seam (guards against rounding).
+     The wake area is NOT this seam — it's the ::after strip below,
+     sized by --t-zone, so the zone can be any height without shifting
+     the bar into the page. */
+  transform: translateY(calc(1px - 100%));
+  opacity: 0;
+  transition:
+    transform var(--t-hide-speed) ease-in var(--t-hide-delay),
+    opacity   var(--t-hide-speed) ease-in var(--t-hide-delay);
+}
+
+/* Invisible hover extender hanging --t-zone below the toolbox's bottom
+   edge. While the bar is hidden it covers the top --t-zone px of the
+   window, so hovering there counts as hovering the toolbox and wakes it.
+   While the bar is shown it adds the same amount of "grace area" under
+   the bar before the mouse counts as having left. */
+#navigator-toolbox::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--t-zone);
+  background: transparent;
+}
+
+/* Stay down while anything is anchored to the chrome. Doorhangers (edit
+   bookmark, permission prompts, save password, extension popups) are
+   <panel> elements that live OUTSIDE the toolbox, so they need the
+   :root:has() form — otherwise the bar retracts and leaves them floating.
+   [movingtab] covers tab drags, which drop hover mid-drag. */
+#navigator-toolbox:hover,
+#navigator-toolbox:focus-within,
+#navigator-toolbox:has(toolbarbutton[open]),
+/* the urlbar is a top-layer popover now; :focus-within does not reliably
+   propagate from it, so key off its attributes directly (Ctrl+L sets
+   [focused], the results dropdown sets [open]) */
+#navigator-toolbox:has(#urlbar:is([focused], [open])),
+:root:has(panel[panelopen]) #navigator-toolbox,
+:root[movingtab] #navigator-toolbox,
+:root[customizing] #navigator-toolbox {
+  transform: translateY(0);
+  opacity: 1;
+  /* the delay here is hover intent: a quick graze of the top edge
+     doesn't flash the bar in */
+  transition:
+    transform var(--t-reveal) ease-out var(--t-reveal-delay),
+    opacity   var(--t-reveal) ease-out var(--t-reveal-delay);
+}
+
+/* Fullscreen has its own native autohide; get out of its way */
+:root[inFullscreen] #navigator-toolbox {
+  position: relative !important;
+  transform: none !important;
+  opacity: 1 !important;
+  transition: none !important;
+}
+/* ...and don't leave the wake strip hanging over fullscreen content */
+:root[inFullscreen] #navigator-toolbox::after {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   URL bar autohide — needed separately since Firefox ~139
+   #urlbar is now popover="manual", rendered in the top layer, where an
+   ancestor's transform/opacity cannot reach it — so it would stay floating
+   over the page while the rest of the toolbox slides away. Fade it in
+   lockstep instead. pointer-events (not visibility) while hidden: a
+   visibility:hidden urlbar could refuse programmatic focus (Ctrl+L), and
+   pointer-events:none also stops the invisible bar from eating page clicks.
+   -------------------------------------------------------------------------- */
+#urlbar {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition:
+    opacity var(--t-hide-speed) ease-in var(--t-hide-delay) !important;
+}
+
+/* Mirror of the toolbox reveal conditions, plus the urlbar's own
+   focused/open states so Ctrl+L and the results dropdown always show it */
+#navigator-toolbox:hover #urlbar,
+#navigator-toolbox:focus-within #urlbar,
+#navigator-toolbox:has(toolbarbutton[open]) #urlbar,
+#urlbar:is([focused], [open]),
+:root:has(panel[panelopen]) #urlbar,
+:root[movingtab] #urlbar,
+:root[customizing] #urlbar,
+:root[inFullscreen] #urlbar {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transition:
+    opacity var(--t-reveal) ease-out var(--t-reveal-delay) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------------- */
+.tabbrowser-tab .tab-background {
+  background: transparent !important;
+  border: none !important;
+  border-radius: var(--t-radius) !important;
+  margin-block: 3px !important;
+}
+
+.tabbrowser-tab[selected] .tab-background {
+  background: rgba(var(--t-surface), 0.55) !important;
+  box-shadow: none !important;
+}
+
+.tabbrowser-tab:not([selected]):hover .tab-background {
+  background: rgba(var(--t-fg), 0.08) !important;
+}
+
+/* Accent stripe on the active tab instead of a heavier fill */
+.tabbrowser-tab[selected] .tab-background::after {
+  content: "";
+  position: absolute;
+  inset: auto 8px 0 8px;
+  height: 2px;
+  background: rgb(var(--t-accent));
+  border-radius: 2px;
+}
+
+.tab-label { color: rgb(var(--t-fg)) !important; }
+.tabbrowser-tab:not([selected]) .tab-label { color: rgb(var(--t-muted)) !important; }
+
+/* --------------------------------------------------------------------------
+   URL bar
+   -------------------------------------------------------------------------- */
+#urlbar-background,
+#searchbar {
+  background: rgba(var(--t-bg-alt), 0.55) !important;
+  border: 1px solid rgba(var(--t-surface), 0.7) !important;
+  border-radius: var(--t-radius) !important;
+  box-shadow: none !important;
+}
+
+#urlbar[focused="true"] > #urlbar-background {
+  border-color: rgba(var(--t-accent), 0.8) !important;
+  background: rgba(var(--t-bg-alt), 0.75) !important;
+}
+
+/* Dropdown results need more opacity than the bar itself */
+#urlbar[open] > #urlbar-background {
+  background: rgba(var(--t-bg-alt), var(--t-alpha-solid)) !important;
+}
+
+#urlbar-input,
+#urlbar-input::placeholder { color: rgb(var(--t-fg)) !important; }
+
+/* --------------------------------------------------------------------------
+   Toolbar buttons
+   -------------------------------------------------------------------------- */
+toolbarbutton .toolbarbutton-icon,
+toolbarbutton image {
+  fill: rgb(var(--t-fg)) !important;
+  color: rgb(var(--t-fg)) !important;
+}
+
+toolbarbutton:hover .toolbarbutton-icon {
+  background: rgba(var(--t-fg), var(--t-alpha-hover)) !important;
+  border-radius: 6px !important;
+}
+
+/* --------------------------------------------------------------------------
+   Popups, panels, menus
+   These are separate compositor surfaces on Wayland. Higher alpha here —
+   translucent menus over arbitrary page content get unreadable fast.
+   -------------------------------------------------------------------------- */
+panel,
+menupopup,
+.panel-arrowcontent,
+#appMenu-popup,
+#customizationui-widget-panel,
+#context-menu {
+  --panel-background: rgba(var(--t-bg-alt), var(--t-alpha-solid)) !important;
+  --panel-border-color: rgba(var(--t-surface), 0.8) !important;
+  --panel-color: rgb(var(--t-fg)) !important;
+  --panel-border-radius: var(--t-radius) !important;
+  background: rgba(var(--t-bg-alt), var(--t-alpha-solid)) !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+menuitem:hover,
+menu:hover,
+.subviewbutton:hover {
+  background: rgba(var(--t-accent), 0.25) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Findbar and sidebar
+   -------------------------------------------------------------------------- */
+findbar {
+  background: rgba(var(--t-bg), var(--t-alpha)) !important;
+  border-top: 1px solid rgba(var(--t-surface), 0.6) !important;
+  color: rgb(var(--t-fg)) !important;
+}
+
+#sidebar-box {
+  background: rgba(var(--t-bg), var(--t-alpha)) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Optional extras — uncomment as wanted
+   -------------------------------------------------------------------------- */
+
+/* NOTE: CSS comments do not nest — keep each block's closer on its own. */
+
+/* Hide the tab bar entirely (pair with a vertical-tabs extension) */
+/* #TabsToolbar { visibility: collapse !important; } */
+
+/* Drop the whole chrome height a bit */
+:root { --tab-min-height: 28px !important; }
+#nav-bar { --toolbarbutton-inner-padding: 4px !important; }

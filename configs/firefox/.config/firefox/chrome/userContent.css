@@ -1,0 +1,41 @@
+/* ==========================================================================
+   userContent.css — matches userChrome.css on built-in pages
+   Drop in ~/.mozilla/firefox/<profile>/chrome/userContent.css
+
+   Web pages paint their own opaque background and will never be transparent
+   from here. Only about: pages are reachable.
+
+   For the flash of white between page loads, also set in about:config:
+     browser.display.background_color = #1e1e2e
+   ========================================================================== */
+
+@-moz-document url-prefix("about:") {
+  :root {
+    --content-bg: #1e1e2e;
+    --content-bg-alt: #181825;
+    --content-fg: #cdd6f4;
+    --content-accent: #89b4fa;
+  }
+
+  body,
+  html {
+    background-color: var(--content-bg) !important;
+    color: var(--content-fg) !important;
+  }
+}
+
+/* New tab / home — transparent so the compositor blur shows through */
+@-moz-document url("about:newtab"), url("about:home"), url("about:blank") {
+  body,
+  .activity-stream,
+  main {
+    background: transparent !important;
+  }
+
+  /* Kill the top-sites and search boxes if you want a bare canvas */
+  /*
+  .search-wrapper,
+  .top-sites,
+  .discovery-stream { display: none !important; }
+  */
+}

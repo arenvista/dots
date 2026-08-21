@@ -1,0 +1,8 @@
+[Unit]
+Description=Rebuild todo.js from org files
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/sleep 2
+ExecStart=/usr/bin/python3 %h/.config/firefox/org-sync.py --out %h/.config/firefox/todo.js --days 21
+Nice=10

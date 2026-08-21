@@ -51,7 +51,6 @@ terminal = [
     "cli.disk",
     "cli.manpages",
     "cli.files",
-    "cli.fetch",
     "cli.catnap",
     "terminal.kitty",
     "editor.neovim",
@@ -76,7 +75,6 @@ desktop = [
     "cli.disk",
     "cli.manpages",
     "cli.files",
-    "cli.fetch",
     "cli.catnap",
     "cli.define",
     "terminal.kitty",
@@ -234,15 +232,7 @@ pacman = [
 ]
 requires = ["editor.neovim", "docs.zathura"]
 suggests = ["cli.disk"] # yazi's delete path uses trash-cli
-notes = "Bound to Ctrl-Y in zsh and SUPER+E in hyprland (ghostty -e yazi)."
-
-[feature.cli.fetch]
-enabled = true
-description = "fastfetch with a pokemon-colorscripts logo"
-pacman = ["fastfetch"]
-aur = ["pokemon-colorscripts-go"]                                                # the logo fastfetch renders
-requires = ["system.fonts"]
-notes = "No stow package: ~/.config/fastfetch is owned by a separate dots repo."
+notes = "Bound to Ctrl-Y in zsh and SUPER+E in hyprland (kitty -e yazi)."
 
 [feature.cli.catnap]
 enabled = true
@@ -284,15 +274,15 @@ pacman = ["kitty"]
 requires = ["system.fonts"]
 notes = """
 Contents: kitty.conf, current-theme.conf, theme-custom.template.
-NOT auto-themed: quickshell/scripts/kitty-colorizer.py can render
-theme-custom.template from the wal palette, but applwal.sh never calls it, so
-current-theme.conf is whatever was last written by hand. .bashrc still sends
-kitty a SIGUSR1 reload. Add the colorizer to applwal.sh to make this live.
+Auto-themed: applwal.sh runs quickshell/scripts/kitty-colorizer.py, which
+renders theme-custom.template from the wal palette into current-theme.conf;
+applwal.sh then signals SIGUSR1 so running windows reload. .bashrc sends the
+same signal at login. This is the SUPER+q terminal.
 """
 
 [feature.terminal.ghostty]
 enabled = true
-description = "ghostty, pywal-themed via ghosty-colorizer.py — the SUPER+E terminal"
+description = "ghostty, pywal-themed via ghosty-colorizer.py — no hyprland keybind"
 stow = ["ghostty"]
 pacman = ["ghostty"]
 requires = ["system.fonts"]
@@ -342,7 +332,7 @@ description = "orgmode.nvim + orgblocks — the org files the start page reads"
 requires = ["editor.neovim"]
 suggests = [
     "apps.browser",
-] # utils/firefox/org-sync.py turns the same files into todo.js
+] # configs/firefox/.config/firefox/org-sync.py turns the same files into todo.js
 notes = """
 Config-only, no packages: plugins/integrations/org/orgmode.lua and
 plugins/viewers/orgblocks.lua. <leader>oC toggles the agenda view.
@@ -827,7 +817,7 @@ enabled = true
 description = "miniserve — serves the firefox start page over localhost"
 pacman = ["miniserve"]
 notes = """
-hyprland's start hook runs it against $HOME/dotfiles/utils/firefox/ with
+hyprland's start hook runs it against $HOME/.config/firefox/ with
 --index home.html. Split out from apps.browser because it is a plain static
 server you may want for other directories too.
 """
@@ -839,15 +829,18 @@ server you may want for other directories too.
 [feature.apps.browser]
 enabled = true
 description = "Firefox plus the org-backed start page (userChrome, org todo/agenda)"
+stow = ["firefox"]
 pacman = ["firefox"]
 requires = ["net.miniserve", "dev.python"]
 suggests = ["desktop.theming", "editor.neovim-org"]
 manual = [
-    "utils/firefox/install_systemd_service.sh — org-sync.path regenerates todo.js on org edits",
-    "Copy utils/firefox/chrome/ into the profile dir and set toolkit.legacyUserProfileCustomizations.stylesheets",
+    "configs/firefox/.config/firefox/install_systemd_service.sh — org-sync.path regenerates todo.js on org edits",
+    "Copy configs/firefox/.config/firefox/chrome/ into the profile dir and set toolkit.legacyUserProfileCustomizations.stylesheets",
 ]
 notes = """
-The start page's background (utils/firefox/current.jpg) is refreshed by applwal.sh.
+The firefox stow package lands the start page at ~/.config/firefox/, which is
+what net.miniserve serves; applwal.sh refreshes its background (current.jpg).
+current.jpg and todo.js are generated, so both are gitignored.
 org-sync.py is stdlib-only, so dev.python's interpreter is all it needs.
 """
 
