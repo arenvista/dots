@@ -44,6 +44,9 @@ class ScreenSelectFeatures(Screen):
         Binding("k", "up", "up"),
         Binding("h", "preset(-1)", "prev preset"),
         Binding("l", "preset(+1)", "next preset"),
+        # g/G as in vim; hidden because the header line already spells them out
+        Binding("g", "edge(False)", "top", show=False),
+        Binding("G", "edge(True)", "bottom", show=False),
         # SelectionList binds enter to "toggle", which makes it a second
         # spacebar. Claim it here so space toggles and enter installs, from
         # anywhere on the screen -- not just when the button holds focus.
@@ -77,7 +80,7 @@ class ScreenSelectFeatures(Screen):
         self.query_one("#header", Static).update(
             f"{self.deps.meta.name} — preset: {self.picker.based_on}"
             + ("   -- VISUAL --" if self.picker.visual_active else "")
-            + "   (h/l preset · j/k move · v visual · space toggles · enter installs)"
+            + "   (h/l preset · j/k move · g/G ends · v visual · space toggles · enter installs)"
         )
 
     # -- navigation -----------------------------------------------------------
@@ -95,6 +98,10 @@ class ScreenSelectFeatures(Screen):
             self.picker.focus_last_row()
         else:
             self.picker.move_cursor(-1)
+
+    def action_edge(self, last: bool) -> None:
+        self.picker.jump_to_edge(last=last)
+        self._refresh_header()
 
     def action_back(self) -> None:
         if self.picker.visual_active:

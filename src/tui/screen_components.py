@@ -9,7 +9,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Footer, Static
 
 from .button_item import ButtonItemA, ButtonItemB, ButtonItemC, ButtonItemD
-from .screens import ScreenSelectFeatures, ScreenSymlinks
+from .screens import ScreenPrune, ScreenSelectFeatures, ScreenSymlinks
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -22,17 +22,27 @@ class ScreenComponents(Screen):
         # j/k are aliases for l/h rather than separate axes.
         Binding("l,j", "app.focus_next", "move", show=False),
         Binding("h,k", "app.focus_previous", "move", show=False),
+        # g/G are the ends of the row here, the same way they are the ends of
+        # a list everywhere else
+        Binding("g", "edge(False)", "first", show=False),
+        Binding("G", "edge(True)", "last", show=False),
     ]
 
     def compose(self) -> ComposeResult:
         with Container(id="box") as box:
             box.border_title = "components"
-            yield Static("Pick what to install:  (hjkl to move, q to quit)\n")
+            yield Static("Pick what to install:  (hjkl to move, g/G ends, q to quit)\n")
             with Horizontal():
                 yield Button("Install", id="features")
                 yield Button("Symlink", id="symlink")
+                yield Button("Prune", id="prune")
             yield Static("")
         yield Footer()
+
+    def action_edge(self, last: bool) -> None:
+        buttons = list(self.query(Button))
+        if buttons:
+            buttons[-1 if last else 0].focus()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         # ButtonItem subclasses handle their own press and let it bubble, so
@@ -42,4 +52,4 @@ class ScreenComponents(Screen):
         if event.button.id == "symlink":
             self.app.push_screen(ScreenSymlinks(REPO_ROOT))
         if event.button.id == "prune":
-            print("NOT IMPLEMENTED")
+            self.app.push_screen(ScreenPrune(REPO_ROOT))

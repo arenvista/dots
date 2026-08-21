@@ -3,14 +3,10 @@
 
 [profile]
 based_on = "custom"
-generated = "2026-08-20T17:37:24"
+generated = "2026-08-21T01:00:35"
 features = [
   "desktop.hyprland",
   "desktop.portals",
-  "desktop.lockscreen",
-  "desktop.pointer",
-  "desktop.waybar",
+  "desktop.logout",
   "audio.pipewire",
-  "system.dotfiles",
-  "system.fonts",
 ]

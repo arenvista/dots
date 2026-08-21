@@ -21,6 +21,8 @@ class ScreenConfirmInstall(Screen):
         # decision never depends on which widget happens to hold focus
         Binding("j", "scroll(+1)", "down"),
         Binding("k", "scroll(-1)", "up"),
+        Binding("g", "edge(False)", "top"),
+        Binding("G", "edge(True)", "bottom"),
         Binding("h", "app.focus_previous", "left", show=False),
         Binding("l", "app.focus_next", "right", show=False),
         Binding("enter", "confirm", "install", priority=True),
@@ -55,6 +57,10 @@ class ScreenConfirmInstall(Screen):
     def action_scroll(self, step: int) -> None:
         summary = self.query_one(ComponentPlanSummary)
         summary.scroll_down() if step > 0 else summary.scroll_up()
+
+    def action_edge(self, last: bool) -> None:
+        summary = self.query_one(ComponentPlanSummary)
+        summary.scroll_end(animate=False) if last else summary.scroll_home(animate=False)
 
     def action_confirm(self) -> None:
         script = self.root / ".manager-install.sh"

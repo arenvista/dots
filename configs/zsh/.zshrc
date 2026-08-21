@@ -5,9 +5,9 @@ export ZSH="$HOME/.oh-my-zsh"
 export ZSH_CUSTOM="$HOME/.config/zsh_custom"
 export EDITOR="nvim"
 
-# Keep $path free of duplicates, prepend Cargo
+# Keep $path free of duplicates, prepend Cargo and ~/.local/bin (uv tools)
 typeset -U path
-path=("$HOME/.cargo/bin" $path)
+path=("$HOME/.cargo/bin" "$HOME/.local/bin" $path)
 
 # Load secret keys (skip silently if the file isn't there)
 [[ -r "$HOME/.secret_keys/openai.env" ]] && source "$HOME/.secret_keys/openai.env"

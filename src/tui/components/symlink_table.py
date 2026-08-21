@@ -9,7 +9,7 @@ from textual.widgets.selection_list import Selection
 
 from ..stow import LINKED, PackageStatus, run_stow, scan
 from .markers import marker
-from .visual_select import VisualRange
+from .visual_select import VisualRange, jump
 
 
 class ComponentSymlinkTable(Vertical):
@@ -158,6 +158,10 @@ class ComponentSymlinkTable(Vertical):
         else:
             listing.action_cursor_up()
         self.visual.moved()
+
+    def jump_to_edge(self, *, last: bool) -> None:
+        """g / G."""
+        jump(self, last=last)
 
     def act(self, action: str) -> None:
         """Run `action` over every selected package (or the cursor row)."""

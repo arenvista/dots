@@ -29,6 +29,9 @@ class ScreenSymlinks(Screen):
         Binding("space", "toggle", "toggle", priority=True),
         Binding("j", "move(+1)", "down"),
         Binding("k", "move(-1)", "up"),
+        # g/G as in vim; hidden because the header line already spells them out
+        Binding("g", "edge(False)", "top", show=False),
+        Binding("G", "edge(True)", "bottom", show=False),
         Binding("l", "act('link')", "link"),
         Binding("u", "act('unlink')", "unlink"),
         Binding("r", "act('refresh')", "refresh"),
@@ -47,7 +50,8 @@ class ScreenSymlinks(Screen):
     def compose(self) -> ComposeResult:
         yield Static(
             f"{self.stow_dir.name}/ → {self.target}   "
-            "(j/k move · l link · u unlink · space select · v visual · r refresh · a adopt · s rescan)"
+            "(j/k move · g/G ends · l link · u unlink · space select · v visual · "
+            "r refresh · a adopt · s rescan)"
         )
         yield ComponentSymlinkTable(self.stow_dir, self.target)
         yield Footer()
@@ -73,6 +77,9 @@ class ScreenSymlinks(Screen):
 
     def action_move(self, step: int) -> None:
         self.table.move(step)
+
+    def action_edge(self, last: bool) -> None:
+        self.table.jump_to_edge(last=last)
 
     def action_act(self, action: str) -> None:
         self.table.act(action)

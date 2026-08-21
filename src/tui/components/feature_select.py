@@ -11,7 +11,7 @@ from textual.widgets.selection_list import Selection
 from ..deps import Deps, pulled_in, with_requires
 
 from .markers import marker
-from .visual_select import VisualRange
+from .visual_select import VisualRange, jump
 
 
 class ComponentFeatureSelect(Vertical):
@@ -152,10 +152,11 @@ class ComponentFeatureSelect(Vertical):
 
     def focus_last_row(self) -> None:
         """Coming back up from the install button lands on the final row."""
-        listing = self.listing
-        listing.focus()
-        if listing.option_count:
-            listing.highlighted = listing.option_count - 1
+        jump(self, last=True)
+
+    def jump_to_edge(self, *, last: bool) -> None:
+        """g / G."""
+        jump(self, last=last)
 
     # -- vim-style visual mode (shared helper) --------------------------------
 

@@ -338,6 +338,7 @@ local appOpacity = {
     { class = "(?i)(vs)?codium", opacity = "0.88 1" },
     { class = "org.pwmt.zathura", opacity = "0.9 1" },
     { class = "firefox", opacity = "0.9 override 0.85 override" },
+    { class = "obsidian", opacity = "0.88 1" },
 }
 for _, r in ipairs(appOpacity) do
     hl.window_rule({ match = { class = r.class }, opacity = r.opacity })

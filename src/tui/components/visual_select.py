@@ -18,6 +18,7 @@ class VisualOwner(Protocol):
     @property
     def row_ids(self) -> tuple[str, ...]: ...
     def repaint_rows(self) -> None: ...
+    visual: VisualRange
 
 
 class VisualRange:
@@ -79,3 +80,20 @@ class VisualRange:
         """Call after the cursor moves so the span redraws."""
         if self.active:
             self.owner.repaint_rows()
+
+
+def jump(owner: VisualOwner, *, last: bool) -> None:
+    """vim's g and G: the cursor to the first or last row.
+
+    A free function rather than a method on each list, because every list in
+    this app already satisfies `VisualOwner` and the jump is the same three
+    lines each time. It goes through `visual.moved()` for the same reason j/k
+    do: with a visual span open, landing on the last row must stretch the span
+    to it, not leave the highlight behind.
+    """
+    listing = owner.listing
+    if not listing.option_count:
+        return
+    listing.focus()
+    listing.highlighted = listing.option_count - 1 if last else 0
+    owner.visual.moved()
