@@ -5,4 +5,5 @@ return {
     { import = "sybil.plugins.integrations.org" },
     { import = "sybil.plugins.integrations.git" },
     { import = "sybil.plugins.integrations.ai" },
+    { import = "sybil.plugins.integrations.ipynb" },
 }

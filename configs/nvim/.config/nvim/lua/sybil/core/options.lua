@@ -50,7 +50,9 @@ opt.smartindent = true -- Makes indentation "smart" (e.g., after opening a brack
 -------------------------------------------------------------------------------
 opt.updatetime = 250 -- Faster completion and trigger for CursorHold (ms)
 opt.timeoutlen = 300 -- Time to wait for a mapped sequence to complete
-opt.ttimeoutlen = 10 -- Time to wait for a key code sequence to complete
+opt.ttimeoutlen = 50 -- Time to wait for a key code sequence to complete.
+-- 10ms was too tight: without tmux extended-keys, Alt+<key> arrives as ESC+<key>,
+-- and a late-arriving second byte got read as bare <Esc> plus a motion.
 opt.shada = "'100,<50,s10,h" -- Shared Data: controls what is saved between sessions
 opt.isfname:append("@-@") -- Include '@' in file name recognition
 opt.backspace = "indent,eol,start" -- Allow backspacing over everything in insert mode
@@ -69,6 +71,11 @@ opt.undodir = os.getenv("HOME") .. "/.vim/undodir"
 vim.cmd("let g:netrw_liststyle = 3") -- Tree view for Netrw
 vim.opt.spelllang = "en" -- Set spelling language to English
 vim.g.markdown_fenced_languages = { "javascript", "typescript", "bash", "lua", "go", "rust", "c", "cpp", "python" }
+-- Resolve .h as C. Set here rather than in a plugin config: nvim's builtin rule
+-- guesses c vs cpp from buffer contents, so a lazily-registered override only
+-- takes effect from the first file opened after that plugin loads.
+vim.g.c_syntax_for_h = 1
+vim.filetype.add({ extension = { h = "c" } })
 vim.env.TEXINPUTS = "/home/sybil/.tex_templates//:" -- TeX template path
 
 -------------------------------------------------------------------------------

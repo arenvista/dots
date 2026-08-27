@@ -5,6 +5,13 @@ return {
     dependencies = {
         "hrsh7th/cmp-buffer", -- source for text in buffer
         "hrsh7th/cmp-path", -- source for file system paths
+        -- Kept here (not on nvim-lspconfig) on purpose: cmp-cmdline's
+        -- after/plugin does `require("cmp")`, so hanging it off an eager
+        -- plugin pulls nvim-cmp in during lazy.nvim's startup pass, before
+        -- `Loader.init_done`. Every other cmp source is registered from its
+        -- own after/plugin file, and lazy skips those while init_done is
+        -- false -- so buffer/path/luasnip/vimtex silently never register.
+        "hrsh7th/cmp-cmdline",
         {
             "L3MON4D3/LuaSnip",
             -- install jsregexp (optional!).
@@ -49,8 +56,10 @@ return {
                 ["<CR>"] = cmp.mapping.confirm({ select = false }),
             }),
             -- sources for autocompletion
+            -- Only sources whose provider is actually installed. cmp silently
+            -- ignores names nothing registered, so a stale entry here is invisible
+            -- rather than an error -- check `cmp.core.sources` before adding one.
             sources = cmp.config.sources({
-                { name = "cmp_ai" },
                 { name = "buffer" }, -- text within current buffer
                 -- { name = "obsidian", priority = 100 },
                 -- { name = "block_ids" },
@@ -58,15 +67,11 @@ return {
                 -- { name = "dictionary"},
                 -- { name = "spell"},
                 -- { name = "omni"},
-                { name = "bufname" },
-                { name = "buffer-lines" },
-                { name = "digraphs" },
+                -- orgmode.nvim is installed but registers no cmp source of its
+                -- own; re-add once its completion is turned on in its setup.
+                -- { name = "orgmode" },
                 { name = "path" }, -- file system paths
-                { name = "orgmode" },
-                { name = "git" },
-                { name = "rg" },
-                { name = "ollama" },
-                { name = "cmdline" },
+                { name = "vimtex" }, -- LaTeX refs/citations (cmp-vimtex, above)
                 { name = "nvim_lsp", priority = 1000 },
                 { name = "luasnip", priority = 10000 },
             }),

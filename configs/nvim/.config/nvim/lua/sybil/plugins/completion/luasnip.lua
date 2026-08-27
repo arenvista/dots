@@ -14,8 +14,6 @@ return {
         -- 2. Tell markdown and tex to also look at "mathmode" snippets
         ls.filetype_extend("markdown", { "mathmode" })
         ls.filetype_extend("tex", { "mathmode" })
-        ls.filetype_extend("h", { "c" })
-        ls.filetype_extend("c", { "h" })
         require("luasnip.loaders.from_vscode").lazy_load()
 
         local luasnip = require("luasnip")
@@ -30,11 +28,5 @@ return {
                 luasnip.jump(-1)
             end
         end, { silent = true })
-        vim.g.c_syntax_for_h = 1
-        vim.filetype.add({
-            extension = {
-                h = "c",
-            },
-        })
     end,
 }

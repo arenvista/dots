@@ -6,7 +6,6 @@ return {
         -- registers mason-lspconfig handlers). Listing it here guarantees ordering.
         "williamboman/mason.nvim",
         "hrsh7th/cmp-nvim-lsp",
-        "hrsh7th/cmp-cmdline",
         { "antosha417/nvim-lsp-file-operations", config = true },
         -- Lazydev is the key to recognizing nvim modules
         {
@@ -17,8 +16,6 @@ return {
                     -- See the configuration section for more details
                     -- Load luvit types when the `vim.uv` word is found
                     { path = "${3rd}/luv/library", words = { "vim%.uv" } },
-                    -- Load codecompanion types when the `codecompanion` word is found
-                    { path = "codecompanion.nvim", words = { "codecompanion" } },
                 },
             },
         },

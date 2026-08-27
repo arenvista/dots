@@ -21,6 +21,20 @@ keymap.set({ "n", "i", "v" }, "<Del>", "<Esc>")
 keymap.set("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move highlighted lines down" })
 keymap.set("v", "K", ":m '<-2<CR>gv=gv", { desc = "Move highlighted lines up" })
 
+-- Terminal-mode window navigation (Claude Code pane, :terminal, snacks terminal).
+-- Defined here rather than in the vim-tmux-navigator lazy spec: lazy's `keys`
+-- handler registers an <expr> stub, which does not fire correctly in terminal
+-- mode -- the command text ends up typed into the terminal. A plain string RHS
+-- avoids that; the plugin still loads on demand via its `cmd` list.
+for key, dir in pairs({ h = "Left", j = "Down", k = "Up", l = "Right" }) do
+    keymap.set(
+        "t",
+        "<C-" .. key .. ">",
+        [[<C-\><C-n><Cmd>TmuxNavigate]] .. dir .. "<CR>",
+        { desc = "Navigate " .. dir:lower() }
+    )
+end
+
 -- ==========================================================
 -- WHICH-KEY GROUPS
 -- ==========================================================
@@ -807,12 +821,25 @@ vim.keymap.set("n", "<a-k>", "<C-w>+<C-w>+", { desc = "Move Window Upper Twice" 
 vim.keymap.set("n", "<a-j>", "<C-w>-<C-w>-", { desc = "Move Window Down Twice" })
 
 -- ==========================================================
--- AI (CodeCompanion)
+-- AI (Claude Code)
 -- ==========================================================
 wk.add({
-    { "<leader>aa", ":'<,'>CodeCompanionActions<cr>", mode = { "n", "v" }, desc = "AI Actions Palette" },
-    { "<leader>ac", ":'<,'>CodeCompanionChat Toggle<cr>", mode = { "n", "v" }, desc = "AI Toggle Chat" },
-    { "<leader>ai", ":'<,'>CodeCompanion<cr>", mode = { "n", "v" }, desc = "AI Inline Prompt" },
+    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
+    { "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model" },
+    { "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
+    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+    {
+        "<leader>as",
+        "<cmd>ClaudeCodeTreeAdd<cr>",
+        desc = "Add file",
+        ft = { "NvimTree", "neo-tree", "oil", "minifiles", "netrw", "snacks_picker_list" },
+    },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
 })
 
 -- ==========================================================
