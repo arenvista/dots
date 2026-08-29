@@ -72,12 +72,25 @@ return {
         vim.opt.foldlevel = 99          -- Start with all folds open
         vim.opt.foldlevelstart = 99
 
+        -- Filetypes whose own ftplugin installs a better `foldexpr` than the
+        -- generic Tree-sitter one.  This autocmd runs *after* ftplugin, so
+        -- without the opt-out it would overwrite theirs.
+        -- ipynb.nvim folds by notebook cell via `ipynb.folding`; Tree-sitter
+        -- folds would break on the facade's cell markers.
+        local fold_optout = {
+            ipynb = true,
+        }
+
         -- 2. Apply Tree-sitter folding automatically to all files
         vim.api.nvim_create_autocmd("FileType", {
             pattern = "*",
             callback = function(event)
                 -- Start highlighting natively
                 pcall(vim.treesitter.start, event.buf)
+
+                if fold_optout[event.match] then
+                    return
+                end
 
                 -- Enable native Treesitter folds (requires Neovim 0.10+)
                 vim.wo.foldmethod = "expr"

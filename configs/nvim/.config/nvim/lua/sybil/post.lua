@@ -1,6 +1,6 @@
 -- 2. Configure folding to use Tree-sitter
 vim.opt.foldmethod = "expr"
-vim.opt.foldexpr = "nvim_treesitter#foldexpr()"
+vim.opt.foldexpr = "v:lua.vim.treesitter.foldexpr()" -- main-branch nvim-treesitter has no `nvim_treesitter#foldexpr()`
 
 -- 3. Folding defaults
 vim.opt.foldenable = true       -- Enable folding at startup

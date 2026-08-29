@@ -359,7 +359,7 @@ s({ trig = "wait" }, t("wait(NULL);")),
 
 s({ trig = "pipe" }, {
     t("int "), i(1, "fd"),
-    t({ "[2];", "pipe(" }), i(1), t(");")
+    t({ "[2];", "pipe(" }), rep(1), t(");")
 }),
 
 s({ trig = "dup2" }, {

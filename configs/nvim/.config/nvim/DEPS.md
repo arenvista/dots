@@ -59,7 +59,12 @@ you prefer them vendored instead of mason/system-wide (`yarn`).
 - `texlive-latex`, `texlive-latexextra`, `texlive-mathscience` — the
   `standalone` class and `amsmath`/`amssymb`/`amsfonts`/`amscd`/`mathtools`
   packages named in the math template
-- `typst` — the Typst math template
+- `typst` — the Typst math template. This is the path markdown math takes by
+  default: `$ .. $` in `.md` is injected as Typst, not LaTeX (see
+  `queries/markdown_inline/injections.scm`), so `typst` is required, not
+  optional, for inline math in notes. `:MdMath latex` puts a single buffer back
+  on the TeX Live path above, and `.ipynb` markdown cells take that path by
+  default (Jupyter renders them with MathJax) — both toolchains stay in use.
 - A terminal speaking the **Kitty graphics protocol**: `kitty`, `ghostty` or
   `wezterm` (this repo ships kitty and ghostty configs)
 - *Optional alternative:* `tectonic` (**AUR**) instead of a full TeX Live
@@ -102,6 +107,18 @@ you prefer them vendored instead of mason/system-wide (`yarn`).
   buffer's language needs: `gcc`/`g++`, `make`, `cmake`, `python`, `cargo`, `go`,
   `nasm`
 
+### Jupyter notebooks (`ipynb.nvim`)
+- `python-jupyter-client` — the kernel bridge (`python/kernel_bridge.py`) imports
+  it. Without it every `:Notebook*` kernel command fails; editing, folding,
+  highlighting and LSP still work.
+- `python-ipykernel` — the `python3` kernel itself, so
+  `:NotebookKernelStart` has something to start. Other languages need their own
+  kernel (`ir` for R, `IJulia` for Julia, …).
+- The `ipynb` tree-sitter parser is *not* a system package and is deliberately
+  absent from `ensure_installed`: the plugin ships the grammar in
+  `tree-sitter-ipynb/` and compiles it on first load.
+- `:checkhealth ipynb` reports the whole list.
+
 ### Binary editing
 - `xxd` — `hex.nvim` (`:HexToggle`); provided by `vim`
 
@@ -140,6 +157,7 @@ sudo pacman -S --needed \
   nodejs npm yarn python python-pip rustup go clang cmake \
   wl-clipboard vim tmux firefox \
   imagemagick ghostscript typst \
+  python-jupyter-client python-ipykernel \
   zathura zathura-pdf-poppler \
   perl-file-homedir perl-yaml-tiny \
   texlive-basic texlive-latex texlive-latexrecommended texlive-latexextra \

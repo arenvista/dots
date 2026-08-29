@@ -2,6 +2,7 @@ local ls = require("luasnip")
 local s = ls.snippet
 local t = ls.text_node
 local i = ls.insert_node
+local rep = require("luasnip.extras").rep
 
 return {
 
@@ -57,10 +58,10 @@ s({ trig = "tstruct" }, {
 
 s({ trig = "guard" }, {
     t({ "#ifndef " }), i(1, "FILENAME_H"),
-    t({ "", "#define " }), i(1),
+    t({ "", "#define " }), rep(1),
     t({ "", "" }),
     i(2, "// declarations"),
-    t({ "", "", "#endif // " }), i(1),
+    t({ "", "", "#endif // " }), rep(1),
 }),
 
 s({ trig = "once" }, {
@@ -103,9 +104,9 @@ s({ trig = "pll" }, t("pair<long long,long long>")),
 s({ trig = "fori" }, {
     t("for (int "), i(1, "i"),
     t(" = "), i(2, "0"),
-    t("; "), i(1),
+    t("; "), rep(1),
     t(" < "), i(3, "n"),
-    t("; "), i(1),
+    t("; "), rep(1),
     t("++) {"),
     t({ "", "    " }),
     i(4),
@@ -148,7 +149,7 @@ s({ trig = "pb" }, t(".push_back(")),
 s({ trig = "em" }, t(".emplace_back(")),
 
 s({ trig = "all" }, {
-    i(1, "v"), t(".begin(), "), i(1), t(".end()")
+    i(1, "v"), t(".begin(), "), rep(1), t(".end()")
 }),
 
 s({ trig = "srt" }, {
@@ -188,7 +189,7 @@ s({ trig = "wait" }, t("wait(NULL);")),
 
 s({ trig = "pipe" }, {
     t("int "), i(1, "fd"),
-    t({ "[2];", "pipe(" }), i(1), t(");")
+    t({ "[2];", "pipe(" }), rep(1), t(");")
 }),
 
 s({ trig = "dup2" }, {

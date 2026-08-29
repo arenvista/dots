@@ -12,6 +12,11 @@ local line_begin = require("luasnip.extras.conditions.expand").line_begin
 -- and `>>` -> `>`. Custom delimiters are no help here: `()` collides with math
 -- calls and `[]` with content blocks.
 
+-- The general math snippets live in typstmath.lua, which is shared with the
+-- `markdown` filetype; only the `.typ`-specific ones are here.  What stays: the
+-- math zone entrance (markdown uses different delimiters) and the template math
+-- helpers in section 7, which need `#import "template.typ"`.
+
 -- The Typst grammar wraps `$...$` in a `math` node.  `code` / `string` / `raw`
 -- are checked first so that `$ #calc.pi $` and `$ "literal" $` count as text.
 -- Limitation: an unterminated `$` parses as ERROR, so math snippets stay
@@ -40,18 +45,6 @@ end
 -- Nothing here shadows those as an autosnippet: name-shaped triggers are plain
 -- Tab snippets, and the only autosnippets are symbol- or `;`-prefixed.
 
-local function delim_matrix(fn, delim)
-    return fmta(
-        [[
-        <>(delim: "<>",
-            <>, <>;
-            <>, <>
-        )
-        ]],
-        { t(fn), t(delim), i(1), i(2), i(3), i(4) }
-    )
-end
-
 local snippets = {
     -- ==========================================================
     -- 1. MATH ZONE ENTRANCE
@@ -61,7 +54,6 @@ local snippets = {
     -- is evaluated, so `not_in_mathzone` would reject its own trigger.
     s({ trig = "$$", snippetType = "autosnippet" }, fmta("$<>$<>", { i(1), i(0) })),
     s({ trig = ";;", snippetType = "autosnippet" }, fmta("$<>$<>", { i(1), i(0) }), { condition = not_in_mathzone }),
-    s({ trig = "xx", snippetType = "autosnippet" }, fmta(" times <>", { i(0) }), { condition = in_mathzone }),
     s(
         { trig = "dm", snippetType = "snippet" },
         fmta(
@@ -89,203 +81,7 @@ local snippets = {
     ),
 
     -- ==========================================================
-    -- 2. MATH: STRUCTURE
-    -- ==========================================================
-    s({ trig = "//", snippetType = "autosnippet" }, fmta("(<>)/(<>)", { i(1), i(2) }), { condition = in_mathzone }),
-    s(
-        { trig = "^^", snippetType = "autosnippet", wordTrig = false },
-        fmta("^(<>)", { i(1) }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "__", snippetType = "autosnippet", wordTrig = false },
-        fmta("_(<>)", { i(1) }),
-        { condition = in_mathzone }
-    ),
-    -- Differential: `dif` is a Typst symbol, `dd` is not, so it can autofire.
-    s({ trig = "dd", snippetType = "autosnippet" }, t("dif "), { condition = in_mathzone }),
-    -- Literal text inside math is a quoted string.
-    s({ trig = "qq", snippetType = "autosnippet" }, fmta('"<>" ', { i(1) }), { condition = in_mathzone }),
-
-    s({ trig = "sqrt", snippetType = "snippet" }, fmta("sqrt(<>)", { i(1) }), { condition = in_mathzone }),
-    s(
-        { trig = "root", snippetType = "snippet" },
-        fmta("root(<>, <>)", { i(1, "3"), i(2) }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "binom", snippetType = "snippet" },
-        fmta("binom(<>, <>)", { i(1, "n"), i(2, "k") }),
-        { condition = in_mathzone }
-    ),
-    s({ trig = "abs", snippetType = "snippet" }, fmta("abs(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "norm", snippetType = "snippet" }, fmta("norm(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "floor", snippetType = "snippet" }, fmta("floor(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "ceil", snippetType = "snippet" }, fmta("ceil(<>)", { i(1) }), { condition = in_mathzone }),
-    -- Auto-scaling delimiters
-    s({ trig = "lr", snippetType = "snippet" }, fmta("lr(( <> ))", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "lrb", snippetType = "snippet" }, fmta("lr([ <> ])", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "lrc", snippetType = "snippet" }, fmta("lr({ <> })", { i(1) }), { condition = in_mathzone }),
-
-    s(
-        { trig = "ub", snippetType = "snippet" },
-        fmta("underbrace(<>, <>)", { i(1), i(2) }),
-        { condition = in_mathzone }
-    ),
-    s({ trig = "ob", snippetType = "snippet" }, fmta("overbrace(<>, <>)", { i(1), i(2) }), { condition = in_mathzone }),
-    s(
-        { trig = "attach", snippetType = "snippet" },
-        fmta("attach(<>, t: <>, b: <>)", { i(1), i(2), i(3) }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "op", snippetType = "snippet" },
-        fmta('op("<>", limits: <>)', { i(1, "Tr"), i(2, "false") }),
-        { condition = in_mathzone }
-    ),
-
-    -- ==========================================================
-    -- 3. MATH: BIG OPERATORS
-    -- ==========================================================
-    s(
-        { trig = "sum", snippetType = "snippet" },
-        fmta("sum_(<>)^(<>) ", { i(1, "n = 1"), i(2, "oo") }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "prod", snippetType = "snippet" },
-        fmta("product_(<>)^(<>) ", { i(1, "n = 1"), i(2, "oo") }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "int", snippetType = "snippet" },
-        fmta("integral_(<>)^(<>) <> dif <>", { i(1, "a"), i(2, "b"), i(3), i(4, "x") }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "iint", snippetType = "snippet" },
-        fmta("integral.double_(<>) <> ", { i(1), i(2) }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "oint", snippetType = "snippet" },
-        fmta("integral.cont_(<>) <> ", { i(1), i(2) }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "lim", snippetType = "snippet" },
-        fmta("lim_(<> ->> <>) ", { i(1, "n"), i(2, "oo") }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "limsup", snippetType = "snippet" },
-        fmta("limsup_(<> ->> <>) ", { i(1, "n"), i(2, "oo") }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "liminf", snippetType = "snippet" },
-        fmta("liminf_(<> ->> <>) ", { i(1, "n"), i(2, "oo") }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "part", snippetType = "snippet" },
-        fmta("(partial <>)/(partial <>)", { i(1), i(2) }),
-        { condition = in_mathzone }
-    ),
-    s(
-        { trig = "der", snippetType = "snippet" },
-        fmta("(dif <>)/(dif <>)", { i(1, "y"), i(2, "x") }),
-        { condition = in_mathzone }
-    ),
-
-    -- ==========================================================
-    -- 4. MATH: MATRICES, VECTORS, CASES
-    -- ==========================================================
-    s(
-        { trig = "mat", snippetType = "snippet" },
-        fmta(
-            [[
-        mat(
-            <>, <>;
-            <>, <>
-        )
-        ]],
-            { i(1), i(2), i(3), i(4) }
-        ),
-        { condition = in_mathzone }
-    ),
-    s({ trig = "bmat", snippetType = "snippet" }, delim_matrix("mat", "["), { condition = in_mathzone }),
-    s({ trig = "vmat", snippetType = "snippet" }, delim_matrix("mat", "|"), { condition = in_mathzone }),
-    s({ trig = "vv", snippetType = "snippet" }, fmta("vec(<>, <>)", { i(1), i(2) }), { condition = in_mathzone }),
-    s(
-        { trig = "cases", snippetType = "snippet" },
-        fmta(
-            [[
-        cases(
-            <> & "if" <>,
-            <> & "otherwise",
-        )
-        ]],
-            { i(1), i(2), i(3) }
-        ),
-        { condition = in_mathzone }
-    ),
-
-    -- ==========================================================
-    -- 5. MATH: ACCENTS & STYLES
-    -- ==========================================================
-    -- Tab-only: these are the real Typst function names, so autosnippets here
-    -- would hijack someone typing `hat(x)` by hand.
-    s({ trig = "hat", snippetType = "snippet" }, fmta("hat(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "bar", snippetType = "snippet" }, fmta("overline(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "vec", snippetType = "snippet" }, fmta("arrow(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "dot", snippetType = "snippet" }, fmta("dot(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "ddot", snippetType = "snippet" }, fmta("dot.double(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "tilde", snippetType = "snippet" }, fmta("tilde(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "bb", snippetType = "snippet" }, fmta("bb(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "cal", snippetType = "snippet" }, fmta("cal(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "frak", snippetType = "snippet" }, fmta("frak(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "bold", snippetType = "snippet" }, fmta("bold(<>)", { i(1) }), { condition = in_mathzone }),
-    s({ trig = "up", snippetType = "snippet" }, fmta("upright(<>)", { i(1) }), { condition = in_mathzone }),
-
-    -- ==========================================================
-    -- 6. MATH: GREEK (`;` sigil, same convention as mathmode.lua)
-    -- ==========================================================
-    s({ trig = ";a", snippetType = "autosnippet", wordTrig = false }, t("alpha"), { condition = in_mathzone }),
-    s({ trig = ";b", snippetType = "autosnippet", wordTrig = false }, t("beta"), { condition = in_mathzone }),
-    s({ trig = ";g", snippetType = "autosnippet", wordTrig = false }, t("gamma"), { condition = in_mathzone }),
-    s({ trig = ";G", snippetType = "autosnippet", wordTrig = false }, t("Gamma"), { condition = in_mathzone }),
-    s({ trig = ";d", snippetType = "autosnippet", wordTrig = false }, t("delta"), { condition = in_mathzone }),
-    s({ trig = ";D", snippetType = "autosnippet", wordTrig = false }, t("Delta"), { condition = in_mathzone }),
-    s({ trig = ";e", snippetType = "autosnippet", wordTrig = false }, t("epsilon"), { condition = in_mathzone }),
-    s({ trig = ";z", snippetType = "autosnippet", wordTrig = false }, t("zeta"), { condition = in_mathzone }),
-    s({ trig = ";h", snippetType = "autosnippet", wordTrig = false }, t("eta"), { condition = in_mathzone }),
-    s({ trig = ";t", snippetType = "autosnippet", wordTrig = false }, t("theta"), { condition = in_mathzone }),
-    s({ trig = ";T", snippetType = "autosnippet", wordTrig = false }, t("Theta"), { condition = in_mathzone }),
-    s({ trig = ";k", snippetType = "autosnippet", wordTrig = false }, t("kappa"), { condition = in_mathzone }),
-    s({ trig = ";l", snippetType = "autosnippet", wordTrig = false }, t("lambda"), { condition = in_mathzone }),
-    s({ trig = ";L", snippetType = "autosnippet", wordTrig = false }, t("Lambda"), { condition = in_mathzone }),
-    s({ trig = ";m", snippetType = "autosnippet", wordTrig = false }, t("mu"), { condition = in_mathzone }),
-    s({ trig = ";n", snippetType = "autosnippet", wordTrig = false }, t("nu"), { condition = in_mathzone }),
-    s({ trig = ";x", snippetType = "autosnippet", wordTrig = false }, t("xi"), { condition = in_mathzone }),
-    s({ trig = ";p", snippetType = "autosnippet", wordTrig = false }, t("pi"), { condition = in_mathzone }),
-    s({ trig = ";P", snippetType = "autosnippet", wordTrig = false }, t("Pi"), { condition = in_mathzone }),
-    s({ trig = ";r", snippetType = "autosnippet", wordTrig = false }, t("rho"), { condition = in_mathzone }),
-    s({ trig = ";s", snippetType = "autosnippet", wordTrig = false }, t("sigma"), { condition = in_mathzone }),
-    s({ trig = ";S", snippetType = "autosnippet", wordTrig = false }, t("Sigma"), { condition = in_mathzone }),
-    s({ trig = ";u", snippetType = "autosnippet", wordTrig = false }, t("tau"), { condition = in_mathzone }),
-    s({ trig = ";f", snippetType = "autosnippet", wordTrig = false }, t("phi"), { condition = in_mathzone }),
-    s({ trig = ";F", snippetType = "autosnippet", wordTrig = false }, t("Phi"), { condition = in_mathzone }),
-    s({ trig = ";c", snippetType = "autosnippet", wordTrig = false }, t("chi"), { condition = in_mathzone }),
-    s({ trig = ";y", snippetType = "autosnippet", wordTrig = false }, t("psi"), { condition = in_mathzone }),
-    s({ trig = ";Y", snippetType = "autosnippet", wordTrig = false }, t("Psi"), { condition = in_mathzone }),
-    s({ trig = ";o", snippetType = "autosnippet", wordTrig = false }, t("omega"), { condition = in_mathzone }),
-    s({ trig = ";O", snippetType = "autosnippet", wordTrig = false }, t("Omega"), { condition = in_mathzone }),
-    s({ trig = ";N", snippetType = "autosnippet", wordTrig = false }, t("nabla"), { condition = in_mathzone }),
-    s({ trig = ";8", snippetType = "autosnippet", wordTrig = false }, t("oo"), { condition = in_mathzone }),
-
-    -- ==========================================================
-    -- 7. MARKUP: HEADINGS & EMPHASIS
+    -- 2. MARKUP: HEADINGS & EMPHASIS
     -- ==========================================================
     s({ trig = "h1", snippetType = "snippet" }, fmta("= <>", { i(1) }), { condition = line_begin }),
     s({ trig = "h2", snippetType = "snippet" }, fmta("== <>", { i(1) }), { condition = line_begin }),
@@ -297,7 +93,7 @@ local snippets = {
     s({ trig = "rawi", snippetType = "snippet" }, fmta("`<>`", { i(1) }), { condition = not_in_mathzone }),
 
     -- ==========================================================
-    -- 8. MARKUP: BLOCKS
+    -- 3. MARKUP: BLOCKS
     -- ==========================================================
     s(
         { trig = "code", snippetType = "snippet" },
@@ -373,7 +169,7 @@ local snippets = {
     ),
 
     -- ==========================================================
-    -- 9. MARKUP: INLINE CALLS & REFERENCES
+    -- 4. MARKUP: INLINE CALLS & REFERENCES
     -- ==========================================================
     s(
         { trig = "img", snippetType = "snippet" },
@@ -421,7 +217,7 @@ local snippets = {
     ),
 
     -- ==========================================================
-    -- 10. SCRIPTING: LET / SET / SHOW / IMPORT
+    -- 5. SCRIPTING: LET / SET / SHOW / IMPORT
     -- ==========================================================
     s({ trig = "let", snippetType = "snippet" }, fmta("#let <> = <>", { i(1, "name"), i(2) })),
     s(
@@ -465,7 +261,7 @@ local snippets = {
     ),
 
     -- ==========================================================
-    -- 11. DOCUMENT PREAMBLE
+    -- 6. DOCUMENT PREAMBLE
     -- ==========================================================
     s(
         { trig = "preamble", snippetType = "snippet" },
@@ -491,7 +287,7 @@ local snippets = {
     ),
 
     -- ==========================================================
-    -- 12. TEMPLATE SCAFFOLDING (template.typ)
+    -- 7. TEMPLATE SCAFFOLDING (template.typ)
     -- ==========================================================
     -- These assume `#import "template.typ": *` -- see snippetsGuide.md.
     s(
@@ -579,7 +375,7 @@ local snippets = {
 }
 
 -- ==========================================================
--- 12b. THEOREM-LIKE ENVIRONMENTS (generated)
+-- 7b. THEOREM-LIKE ENVIRONMENTS (generated)
 -- ==========================================================
 -- Each name gets two Tab snippets: the bare trigger, and the trigger + "t"
 -- for the `title:` variant.  Tab-only and gated out of math, so none of them

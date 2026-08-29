@@ -11,8 +11,14 @@ return {
         -- This loads markdown.lua -> "markdown", tex.lua -> "tex", mathmode.lua -> "mathmode"
         require("luasnip.loaders.from_lua").load({ paths = "./lua/sybil/plugins/completion/snip" })
 
-        -- 2. Tell markdown and tex to also look at "mathmode" snippets
-        ls.filetype_extend("markdown", { "mathmode" })
+        -- 2. Pull in the shared math snippet sets.
+        -- typstmath.lua is the Typst math shared by .typ files and markdown;
+        -- mathmode.lua is the LaTeX equivalent, used by .tex files and by
+        -- markdown buffers switched over with `:MdMath latex`.
+        -- Markdown is deliberately absent here: which of the two it borrows is
+        -- a per-buffer choice, so it is decided by the `ft_func` in nvim-cmp.lua
+        -- instead of by a global extend.  See lua/sybil/core/mdmath.lua.
+        ls.filetype_extend("typst", { "typstmath" })
         ls.filetype_extend("tex", { "mathmode" })
         require("luasnip.loaders.from_vscode").lazy_load()
 

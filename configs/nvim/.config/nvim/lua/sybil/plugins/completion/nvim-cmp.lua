@@ -29,6 +29,18 @@ return {
         local lspkind = require("lspkind")
         luasnip.setup({
             enable_autosnippets = true,
+            -- Which math snippets a markdown buffer sees depends on the syntax
+            -- it is set to -- see lua/sybil/core/mdmath.lua and `:MdMath`.
+            -- Other filetypes fall through to LuaSnip's default behaviour,
+            -- which is this same split plus the `filetype_extend` chains.
+            ft_func = function()
+                local fts = vim.split(vim.bo.filetype, ".", { plain = true })
+                if vim.bo.filetype == "markdown" then
+                    local mode = require("sybil.core.mdmath").get(0)
+                    table.insert(fts, mode == "latex" and "mathmode" or "typstmath")
+                end
+                return fts
+            end,
         })
         cmp.setup({
             sorting = {

@@ -1,10 +1,20 @@
 # Typst snippets — how to use
 
-Everything here describes `typst.lua` in this directory. It is picked up
-automatically by the `from_lua` loader in `../luasnip.lua`, which maps a
-filename to a filetype: `typst.lua` → `typst`. There is nothing to register.
+Everything here describes the Typst snippets in this directory. They are picked
+up automatically by the `from_lua` loader in `../luasnip.lua`, which maps a
+filename to a filetype. There is nothing to register.
 
-165 snippets: 127 for `typst`, plus 38 autosnippets.
+They live in two files:
+
+| File            | Filetype     | Holds                                                            |
+| --------------- | ------------ | ---------------------------------------------------------------- |
+| `typstmath.lua` | `typstmath`  | Everything that goes _inside_ `$ … $` — 78 snippets, 38 of them auto |
+| `typst.lua`     | `typst`      | `.typ` markup, scripting, preamble, `template.typ` helpers — 88 snippets, 2 auto |
+
+`typstmath` is not a real filetype; `../luasnip.lua` pulls it into both `typst`
+and `markdown` with `filetype_extend`.
+
+**Math in markdown is Typst too, not LaTeX.** See [Markdown](#markdown) below.
 
 ---
 
@@ -219,6 +229,91 @@ consume one.
 
 ---
 
+## Markdown
+
+Math in `.md` files is written in Typst by default, not LaTeX. Two things make
+that work:
+
+- `queries/markdown_inline/injections.scm` sends every `$ … $` span to the
+  **typst** parser instead of the latex one. That drives highlighting, the
+  `in_mathzone` guard, and `snacks.image`'s inline math rendering (which shells
+  out to `typst`, so the binary has to be on `$PATH`).
+- the `ft_func` in `../nvim-cmp.lua` adds `typstmath` to a markdown buffer's
+  snippet chain, so every snippet in the math tables above is available in
+  markdown as well.
+
+Only the delimiters differ, and they live in `markdown.lua`:
+
+| Trigger  |        | Expands to                          |
+| -------- | ------ | ----------------------------------- |
+| `il`     | _auto_ | `$⟨⟩$` — inline math                |
+| `;;`     | _auto_ | `$⟨⟩$` — same, easier to reach      |
+| `dm`     | _auto_ | `$$` / `⟨⟩` / `$$` on their own lines — display |
+| `contra` | _auto_ | `arrow.zigzag` (↯), inside math     |
+
+### Switching a buffer back to LaTeX
+
+`:MdMath latex` flips **the current buffer** to LaTeX; `:MdMath typst` flips it
+back and a bare `:MdMath` toggles. It is per buffer, so an old LaTeX note and a
+new Typst one can be open side by side, and it sticks across a `:edit`. It
+accepts markdown and `ipynb` buffers.
+
+**Notebooks are the exception, and they are LaTeX by default.** Jupyter renders
+markdown cells with MathJax, so `$ .. $` in an `.ipynb` — the notebook facade
+and the buffer opened for a single cell alike — is LaTeX regardless of
+`M.default`, and gets `mathmode.lua`'s snippets. An explicit `:MdMath typst` on
+a notebook buffer still wins if you want it.
+
+Plain markdown buffers start on Typst. To change that, edit `M.default` in
+`lua/sybil/core/mdmath.lua` and restart; buffers already open when you change it
+pick the new value up unpredictably, on their next re-parse.
+
+There is no auto-detect for ordinary files: an old LaTeX note needs
+`:MdMath latex` once per session, every session.
+
+The command moves both halves at once, which is the point — a buffer whose
+injection says one thing and whose snippets say the other is useless:
+
+| | Typst mode | LaTeX mode |
+| --- | --- | --- |
+| `$ … $` parses as | typst | latex |
+| Snippets come from | `typstmath.lua` | `mathmode.lua` |
+| `snacks.image` renders with | `typst` | `pdflatex` + `ghostscript` |
+| `;a` gives | `alpha` | `\alpha` |
+| `_qed` gives | `$qed$` | `$\blacksquare$` |
+
+Tree-sitter injection queries are global per language, so
+`queries/markdown_inline/injections.scm` carries a rule per language per
+delimiter — four math rules — and a custom `#md-math?` predicate, registered in
+`lua/sybil/core/mdmath.lua`, picks between them. Because a predicate is
+evaluated per match against the *buffer*, the choice reaches markdown nested two
+levels down inside a notebook (`ipynb` → `markdown` → `markdown_inline`), which
+a per-parser option could not. `mdmath.get()` is the single place that answers
+the question; the predicate and the snippet `ft_func` both call it.
+
+`markdown.lua` itself is shared by both modes: its `in_mathzone` knows both sets
+of node types, and `contra` picks its body when it expands.
+
+**Display math stays `$$ … $$` here.** That is markdown's delimiter, not
+Typst's — Typst has no `$$`, its display math is a single `$` with surrounding
+whitespace. The injection query bridges the two by trimming one `$` off each
+end before handing the block to the Typst parser, so `$$ … $$` highlights,
+renders, and fires snippets exactly like a `.typ` equation does. The trim is
+markdown-only; `.typ` files keep the single-`$` form from `typst.lua`.
+
+A single `$` on its own lines also works in markdown if you prefer it — the
+inline rule already covers it, and Typst reads it as a block equation.
+
+**Keep a blank line out of the body.** A blank line ends the markdown paragraph
+and with it the math span, so the injection stops at that point.
+
+Not covered: `markdown-preview.nvim` renders with KaTeX and obsidian.nvim with
+its own renderer, so neither shows Typst math. In-editor rendering via
+`snacks.image` is the one that works. Fenced ` ```math ` blocks are also still
+LaTeX — that mapping is hardcoded in snacks' own `queries/markdown/images.scm`.
+
+---
+
 ## Gotchas
 
 **Math snippets need a closing `$`.** The Typst parser treats an unterminated
@@ -261,8 +356,10 @@ To check your edit before trusting it — this catches unescaped brackets,
 duplicate triggers, and syntax errors without leaving the shell:
 
 ```sh
-nvim --headless -u NONE \
-  -c 'lua vim.opt.runtimepath:append(vim.fn.expand("~/.local/share/nvim/lazy/LuaSnip"))' \
-  -c 'lua local s = loadfile("lua/sybil/plugins/completion/snip/typst.lua")(); print(#s .. " snippets ok")' \
-  -c 'qa!'
+for f in typst typstmath markdown; do
+  nvim --headless -u NONE \
+    -c 'lua vim.opt.runtimepath:append(vim.fn.expand("~/.local/share/nvim/lazy/LuaSnip"))' \
+    -c "lua local s = loadfile('lua/sybil/plugins/completion/snip/$f.lua')(); print('$f: ' .. #s .. ' snippets ok')" \
+    -c 'qa!'
+done
 ```
