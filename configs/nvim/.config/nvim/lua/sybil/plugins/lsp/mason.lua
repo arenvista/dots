@@ -1,24 +1,18 @@
 return {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     -- Loaded on demand: as a dependency of nvim-lspconfig (so mason.setup runs
     -- before the LSP config), or via the :Mason* commands. Keeps ~62ms off startup.
     lazy = true,
     cmd = { "Mason", "MasonInstall", "MasonUpdate", "MasonUninstall", "MasonUninstallAll", "MasonLog" },
     dependencies = {
-        "williamboman/mason-lspconfig.nvim",
+        -- Configured in lspconfig.lua, not here: mason-lspconfig enables servers
+        -- as a side effect of setup(), so it has to run *after* the
+        -- vim.lsp.config() calls it will enable.
+        "mason-org/mason-lspconfig.nvim",
         "WhoIsSethDaniel/mason-tool-installer.nvim",
     },
     config = function()
-        -- import mason
-        local mason = require("mason")
-
-        -- import mason-lspconfig
-        local mason_lspconfig = require("mason-lspconfig")
-
-        local mason_tool_installer = require("mason-tool-installer")
-
-        -- enable mason and configure icons
-        mason.setup({
+        require("mason").setup({
             ui = {
                 icons = {
                     package_installed = "✓",
@@ -27,28 +21,20 @@ return {
                 },
             },
         })
-        mason_lspconfig.setup({
-            -- list of servers for mason to install
+
+        -- Formatters and linters only — language servers are installed by
+        -- mason-lspconfig's ensure_installed (see lspconfig.lua).
+        require("mason-tool-installer").setup({
             ensure_installed = {
-                "clangd",
-                "pyright",
+                "prettier",
+                "prettierd",
                 "stylua",
-                "taplo",
-            },
-        })
-        mason_tool_installer.setup({
-            ensure_installed = {
-                "prettier", -- prettier formatter
-                "stylua", -- lua formatter
-                "isort", -- python formatter
-                "black", -- python formatter
+                "isort",
+                "black",
                 "pylint",
                 "eslint_d",
                 "latexindent",
-                "css-lsp",
-                "html-lsp",
-                "lua-language-server",
-                "texlab",
+                "prettypst",
             },
         })
     end,

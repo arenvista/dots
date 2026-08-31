@@ -1,10 +1,27 @@
+-- LSP setup.
+--
+-- Neovim 0.11+ / nvim-lspconfig v2 do this natively: the plugin ships a
+-- `lsp/<server>.lua` for every server (cmd, filetypes, root_markers), and we
+-- layer overrides on top with `vim.lsp.config()`. Configs resolve in this order
+-- (`:h vim.lsp.config`):
+--
+--   vim.lsp.config("*")  ->  lsp/<name>.lua from the runtimepath  ->  vim.lsp.config("<name>")
+--
+-- so anything not set below keeps upstream's defaults. `require("lspconfig")`
+-- is never called; the plugin is here only to supply those `lsp/` definitions.
+--
+-- Servers are turned on by mason-lspconfig's `automatic_enable`, which calls
+-- `vim.lsp.enable()` for *every* mason-installed server it can map to a config
+-- — not just the ones named below. So anything installed by hand via :MasonInstall
+-- (ts_ls, rust_analyzer, marksman, ...) attaches on upstream defaults too. That is
+-- intended; `ensure_installed` below is the floor, not the whole list.
 return {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     dependencies = {
-        -- mason must be set up before this config runs (adds servers to PATH,
-        -- registers mason-lspconfig handlers). Listing it here guarantees ordering.
-        "williamboman/mason.nvim",
+        -- mason must be set up before this config runs (it adds servers to PATH).
+        -- Listing it here guarantees that ordering.
+        "mason-org/mason.nvim",
         "hrsh7th/cmp-nvim-lsp",
         { "antosha417/nvim-lsp-file-operations", config = true },
         -- Lazydev is the key to recognizing nvim modules
@@ -13,7 +30,6 @@ return {
             ft = "lua", -- only load on lua files
             opts = {
                 library = {
-                    -- See the configuration section for more details
                     -- Load luvit types when the `vim.uv` word is found
                     { path = "${3rd}/luv/library", words = { "vim%.uv" } },
                 },
@@ -21,172 +37,145 @@ return {
         },
     },
     config = function()
-        local lspconfig = require("lspconfig")
-        local cmp_nvim_lsp = require("cmp_nvim_lsp")
-        local keymap = vim.keymap
+        ------------------------------------------------------------------
+        -- 1. Defaults applied to every server
+        ------------------------------------------------------------------
+        vim.lsp.config("*", {
+            capabilities = require("cmp_nvim_lsp").default_capabilities(),
+        })
 
-        -- 1. Setup Capabilities
-        local capabilities = cmp_nvim_lsp.default_capabilities()
-
-        -- 2. Define Server Specific Configs
-        local servers = {
-            -- Lua LS
-            lua_ls = {
-                settings = {
-                    Lua = {
-                        runtime = {
-                            -- Tell the language server which version of Lua you're using
-                            -- (most likely LuaJIT in the case of Neovim)
-                            version = "LuaJIT",
-                        },
-                        workspace = {
-                            -- Make the server aware of Neovim runtime files
-                            -- library = ... -- DON'T set this manually, lazydev does it for you!
-                            checkThirdParty = true,
-                        },
-                        completion = {
-                            callSnippet = "Replace",
-                        },
-                        telemetry = { enable = false },
-                        diagnostics = {
-                            -- Get the language server to recognize the `vim` global
-                            globals = { "vim" },
-                            disable = { "missing-fields" }, -- Optional: Ignore noisy warnings
-                        },
+        ------------------------------------------------------------------
+        -- 2. Per-server overrides
+        ------------------------------------------------------------------
+        vim.lsp.config("lua_ls", {
+            settings = {
+                Lua = {
+                    -- Neovim runs LuaJIT
+                    runtime = { version = "LuaJIT" },
+                    workspace = {
+                        -- DON'T set `library` manually — lazydev does it for you,
+                        -- which is also why this is false: left true, lua_ls keeps
+                        -- prompting to add luv & friends as a third-party workspace
+                        -- library that lazydev has already loaded.
+                        checkThirdParty = false,
+                    },
+                    completion = { callSnippet = "Replace" },
+                    telemetry = { enable = false },
+                    diagnostics = {
+                        globals = { "vim" },
+                        disable = { "missing-fields" }, -- noisy on plugin opts tables
                     },
                 },
-            },
-
-            -- Clangd
-            clangd = {
-                cmd = {
-                    "clangd",
-                    "--background-index",
-                    "--clang-tidy",
-                    "--log=verbose",
-                    -- Optional: specify compile_commands.json directory if not at root
-                    -- '--compile-commands-dir=build',
-                },
-                init_options = {
-                    fallbackFlags = { "-std=c++17" },
-                },
-                -- Automatically find compile_commands.json in project root
-                root_dir = function(fname)
-                    return lspconfig.util.root_pattern("compile_commands.json", ".git")(fname)
-                        or lspconfig.util.path.dirname(fname)
-                end,
-            },
-
-            -- Pyright
-            pyright = {
-                settings = {
-                    python = {
-                        analysis = {
-                            autoSearchPaths = true,
-                            diagnosticMode = "workspace",
-                            useLibraryCodeForTypes = true,
-                        },
-                    },
-                },
-            },
-
-            -- GraphQL
-            graphql = {
-                filetypes = { "graphql", "gql", "svelte", "typescriptreact", "javascriptreact" },
-            },
-
-            -- Emmet
-            emmet_ls = {
-                filetypes = { "html", "typescriptreact", "javascriptreact", "css", "sass", "scss", "less", "svelte" },
-            },
-
-            -- CSS Modules
-            cssmodules_ls = {
-                filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact" },
-                on_attach = function(client, bufnr)
-                    -- Prevent cssmodules from overwriting standard typescript go-to-definitions
-                    client.server_capabilities.definitionProvider = false
-
-                    -- Map your jump keys to search class definitions via the implementation layer
-                    keymap.set("n", "<leader>ld", vim.lsp.buf.implementation, {
-                        buffer = bufnr,
-                        desc = "Goto Class Definition",
-                    })
-                end,
-            },
-        }
-
-        -- 3. Mason Setup & Handlers
-        require("mason-lspconfig").setup({
-            ensure_installed = vim.tbl_keys(servers),
-            handlers = {
-                function(server_name)
-                    local server_config = servers[server_name] or {}
-                    server_config.capabilities =
-                        vim.tbl_deep_extend("force", {}, capabilities, server_config.capabilities or {})
-                    lspconfig[server_name].setup(server_config)
-                end,
             },
         })
 
-        -- 4. LspAttach Autocommand (Global Keybinds)
-        vim.api.nvim_create_autocmd("LspAttach", {
-            group = vim.api.nvim_create_augroup("UserLspConfig", {}),
-            callback = function(ev)
-                local client = vim.lsp.get_client_by_id(ev.data.client_id)
+        vim.lsp.config("clangd", {
+            -- Replaces upstream's `{ "clangd" }` wholesale (lists don't merge).
+            cmd = {
+                "clangd",
+                "--background-index",
+                "--clang-tidy",
+                -- If compile_commands.json lives in a build dir:
+                -- "--compile-commands-dir=build",
+            },
+            init_options = {
+                fallbackFlags = { "-std=c++17" },
+            },
+            -- No root_dir override: upstream's root_markers already cover
+            -- compile_commands.json / compile_flags.txt / .clangd / .git.
+            -- Its on_attach also defines :LspClangdSwitchSourceHeader.
+        })
 
-                -- A handy wrapper function so we don't have to type out the `{ buffer, desc }` table every time
-                local map = function(mode, keys, func, desc)
-                    vim.keymap.set(mode, keys, func, { buffer = ev.buf, desc = "LSP: " .. desc })
-                end
-                map("n", "K", vim.lsp.buf.hover, "Hover Documentation")
-                map("i", "<C-k>", vim.lsp.buf.signature_help, "Signature Help")
-                local function switch_source_header()
-                    local bufnr = vim.api.nvim_get_current_buf()
-                    local params = { uri = vim.uri_from_bufnr(bufnr) }
+        vim.lsp.config("pyright", {
+            settings = {
+                python = {
+                    analysis = {
+                        autoSearchPaths = true,
+                        diagnosticMode = "workspace",
+                        useLibraryCodeForTypes = true,
+                    },
+                },
+            },
+        })
 
-                    vim.lsp.buf_request(bufnr, "textDocument/switchSourceHeader", params, function(err, result)
-                        if err then
-                            vim.notify("Error switching source/header: " .. tostring(err.message), vim.log.levels.ERROR)
-                            return
-                        end
+        -- Upstream's list plus "svelte". No "gql" — .gql files already resolve to
+        -- filetype "graphql", so listing it does nothing but warn in checkhealth.
+        vim.lsp.config("graphql", {
+            filetypes = { "graphql", "typescriptreact", "javascriptreact", "svelte" },
+        })
 
-                        if not result then
-                            vim.notify("Corresponding source/header file not found", vim.log.levels.WARN)
-                            return
-                        end
-
-                        -- Open the returned file
-                        vim.cmd("edit " .. vim.uri_to_fname(result))
-                    end)
-                end
-
-                -- 2. Bind it inside your LspAttach callback
-                -- ...
-                if client.name == "clangd" then
-                    vim.keymap.set(
-                        "n",
-                        "gs",
-                        switch_source_header, -- Call the Lua function directly instead of <cmd>
-                        { buffer = ev.buf, desc = "Switch Source/Header" }
-                    )
-                end
+        -- No emmet_ls / cssmodules_ls `filetypes` override: upstream's lists are
+        -- a superset of / identical to what we want, and filetypes is a list, so
+        -- overriding replaces rather than merges (emmet would lose vue, astro,
+        -- pug, templ, htmldjango, eruby, htmlangular).
+        vim.lsp.config("cssmodules_ls", {
+            on_attach = function(client)
+                -- Keep cssmodules out of go-to-definition so ts_ls wins it.
+                -- Class lookups go through <leader>ld (see maps.lua), which
+                -- greps for the rule when the cursor is in a class attribute.
+                client.server_capabilities.definitionProvider = false
             end,
         })
 
-        -- 5. Diagnostic Signs & Config
-        local signs = { Error = " ", Warn = " ", Hint = "󰠠 ", Info = " " }
-        for type, icon in pairs(signs) do
-            local hl = "DiagnosticSign" .. type
-            vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
-        end
+        ------------------------------------------------------------------
+        -- 3. Install + enable
+        --
+        -- Must come after the vim.lsp.config() calls above — setup() enables
+        -- servers as a side effect, and an enabled config is resolved and cached
+        -- on first attach. Names here are lspconfig names, not mason package names.
+        ------------------------------------------------------------------
+        require("mason-lspconfig").setup({
+            ensure_installed = {
+                -- configured above
+                "lua_ls",
+                "clangd",
+                "pyright",
+                "graphql",
+                "emmet_ls",
+                "cssmodules_ls",
+                -- upstream defaults are fine for these
+                "cssls",
+                "html",
+                "texlab",
+                "taplo",
+            },
+            automatic_enable = {
+                -- mason installs stylua as a formatter for conform, but the
+                -- package also advertises an LSP mode (`stylua --lsp`), which
+                -- automatic_enable would otherwise start on every Lua buffer.
+                exclude = { "stylua" },
+            },
+        })
 
-        -- vim.diagnostic.config({
-        -- 	virtual_text = false,
-        -- 	signs = true,
-        -- 	underline = true,
-        -- 	update_in_insert = false,
-        -- 	severity_sort = true,
-        -- })
+        ------------------------------------------------------------------
+        -- 4. Buffer-local keymaps on attach
+        --    (0.11+ already maps K=hover, grn/gra/grr/gri, gO; the rest of
+        --     the LSP keymaps live in maps.lua under <leader>l)
+        ------------------------------------------------------------------
+        vim.api.nvim_create_autocmd("LspAttach", {
+            group = vim.api.nvim_create_augroup("UserLspConfig", {}),
+            callback = function(ev)
+                vim.keymap.set("i", "<C-k>", vim.lsp.buf.signature_help, {
+                    buffer = ev.buf,
+                    desc = "LSP: Signature Help",
+                })
+            end,
+        })
+
+        ------------------------------------------------------------------
+        -- 5. Diagnostics
+        --    virtual_text is deliberately absent — inline-diagnotic.lua owns it.
+        ------------------------------------------------------------------
+        vim.diagnostic.config({
+            severity_sort = true,
+            signs = {
+                text = {
+                    [vim.diagnostic.severity.ERROR] = " ",
+                    [vim.diagnostic.severity.WARN] = " ",
+                    [vim.diagnostic.severity.HINT] = "󰠠 ",
+                    [vim.diagnostic.severity.INFO] = " ",
+                },
+            },
+        })
     end,
 }
