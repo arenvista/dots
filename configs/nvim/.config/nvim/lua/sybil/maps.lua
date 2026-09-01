@@ -796,6 +796,38 @@ vim.api.nvim_create_autocmd("User", {
         Snacks.toggle.inlay_hints():map("<leader>uh")
         Snacks.toggle.indent():map("<leader>ug")
         Snacks.toggle.dim():map("<leader>uD")
+
+        -- Inline math rendering: snacks.image replaces `$..$` / `$$..$$` with a
+        -- rendered image, compiled as Typst or LaTeX depending on the buffer's
+        -- `:MdMath` mode.  `math.enabled` is re-read every time snacks scans a
+        -- buffer for images, so flipping it takes effect on the next scan --
+        -- the loop below forces that scan instead of waiting for a scroll or
+        -- an edit.  Ordinary images are untouched; only `type == "math"`
+        -- matches are gated.
+        Snacks.toggle({
+            name = "Math Rendering",
+            get = function()
+                return Snacks.image.config.math.enabled
+            end,
+            set = function(state)
+                Snacks.image.config.math.enabled = state
+                -- Float mode (`doc.inline = false`): the only stale artifact is
+                -- an open hover window.
+                pcall(function()
+                    require("snacks.image.doc").hover_close()
+                end)
+                -- Inline mode: re-run the per-buffer scan that adds/removes
+                -- placements, via snacks' own autocmd group so nothing else fires.
+                for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+                    if vim.api.nvim_buf_is_valid(buf) and vim.b[buf].snacks_image_attached then
+                        pcall(vim.api.nvim_exec_autocmds, "BufWinEnter", {
+                            group = "snacks.image.inline." .. buf,
+                            buffer = buf,
+                        })
+                    end
+                end
+            end,
+        }):map("<leader>uM")
     end,
 })
 
