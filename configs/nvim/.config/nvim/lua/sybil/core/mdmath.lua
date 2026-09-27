@@ -9,13 +9,12 @@
 --     `typstmath` or `mathmode`.  See the `ft_func` in
 --     ../plugins/completion/nvim-cmp.lua.
 --
--- The injection side is a custom `#md-math?` predicate, registered here and used
+-- The injection side is a custom `#md-math!` directive, registered here and used
 -- by queries/markdown_inline/injections.scm.  Tree-sitter injection queries are
--- global per language, so the query carries a rule for each mode and the
--- predicate picks between them per buffer, every time a match is evaluated.
--- That keeps the decision on the *buffer* rather than on a parser instance,
--- which is what lets it reach markdown nested two levels deep inside an
--- `ipynb` notebook.
+-- global per language, so the directive sets the language per buffer, every
+-- time a math span is matched.  That keeps the decision on the *buffer* rather
+-- than on a parser instance, which is what lets it reach markdown nested two
+-- levels deep inside an `ipynb` notebook.
 
 local M = {}
 
@@ -31,14 +30,14 @@ local function is_notebook(buf)
         return true
     end
     -- Only ask ipynb.nvim if it is already loaded; this module must not pull it in.
-    if not package.loaded["ipynb.state"] then
+    -- This runs once per math span per injection scan, so bail out before the
+    -- pcall when no notebook is open -- the usual case for plain notes.
+    local ipynb = package.loaded["ipynb.state"]
+    if not ipynb or type(ipynb.notebooks) ~= "table" or next(ipynb.notebooks) == nil then
         return false
     end
-    local ok, in_notebook = pcall(function()
-        local state = require("ipynb.state").get_from_edit_buf(buf)
-        return state ~= nil and state.edit_state ~= nil
-    end)
-    return ok and in_notebook
+    local ok, state = pcall(ipynb.get_from_edit_buf, buf)
+    return ok and state ~= nil and state.edit_state ~= nil
 end
 
 --- The one place that answers "which syntax is this buffer's math?".
@@ -61,15 +60,28 @@ function M.get(buf)
     return M.default
 end
 
--- Used by queries/markdown_inline/injections.scm to pick the math language.
--- Registered here, before lazy.nvim runs, so it exists by the time any
--- markdown_inline injection query is parsed.
-vim.treesitter.query.add_predicate("md-math?", function(_, _, source, predicate)
-    if type(source) ~= "number" then
-        return predicate[2] == M.default
+-- Used by queries/markdown_inline/injections.scm to pick the math language:
+--   (#md-math! @_delim @injection.content)
+-- @_delim is the opening delimiter, `$` or `$$`, told apart by width alone so no
+-- text has to be fetched.  Typst has no `$$` -- its display math is a single `$`
+-- with surrounding whitespace -- so for Typst one `$` is trimmed off each end of
+-- a `$$ .. $$` block (the same offset `#offset! @c 0 1 0 -1` would store).
+-- LaTeX takes `$$ .. $$` as-is.  Registered here, before lazy.nvim runs, so it
+-- exists by the time any markdown_inline injection query is parsed.
+vim.treesitter.query.add_directive("md-math!", function(match, _, source, pred, metadata)
+    local delim = match[pred[2]] and match[pred[2]][1]
+    if not delim then
+        return
     end
-    return M.get(source) == predicate[2]
-end, { force = true, all = false })
+    local mode = type(source) == "number" and M.get(source) or M.default
+    metadata["injection.language"] = mode
+    local _, start_col, _, end_col = delim:range()
+    if mode == "typst" and end_col - start_col == 2 then
+        local id = pred[3]
+        metadata[id] = metadata[id] or {}
+        metadata[id].offset = { 0, 1, 0, -1 }
+    end
+end, { force = true })
 
 --- Re-derive the injected trees so a mode change shows up immediately.
 --- @param buf integer

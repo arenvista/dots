@@ -1,5 +1,12 @@
 return {
     "ajbucci/ipynb.nvim",
+    -- Loaded when a notebook is opened. With no trigger it loaded at startup
+    -- (~90ms) and, through the dependencies below, took nvim-lspconfig (mason,
+    -- lazydev, ...) and nvim-treesitter with it before any file was open.
+    -- setup() registers its BufReadCmd/BufWriteCmd in augroups, and lazy
+    -- re-fires those for the buffer that triggered the load.
+    event = { "BufReadCmd *.ipynb", "BufNewFile *.ipynb" },
+    cmd = { "NotebookCreate", "NotebookListKernels" },
     dependencies = {
         "nvim-treesitter/nvim-treesitter",
         "neovim/nvim-lspconfig",

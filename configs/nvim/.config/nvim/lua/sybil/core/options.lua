@@ -2,7 +2,7 @@
 -- KEYBOARD LEADERS
 -------------------------------------------------------------------------------
 vim.g.mapleader = " " -- Sets the main leader key to Space
-vim.g.localleader = "\\" -- Sets the local leader (often used for filetype-specific plugins)
+vim.g.maplocalleader = "\\" -- Sets the local leader (often used for filetype-specific plugins)
 
 -------------------------------------------------------------------------------
 -- UI & VISUALS
@@ -17,16 +17,16 @@ opt.background = "dark" -- Tell Neovim to use colors suited for a dark backgroun
 opt.signcolumn = "yes" -- Always show the sign column (prevents "shifting" text)
 opt.wrap = false -- Don't wrap long lines
 opt.scrolloff = 8 -- Keep at least 8 lines visible above/below the cursor
-opt.conceallevel = 0 -- Partially hide formatted text (like markdown links)
+opt.conceallevel = 0 -- Show concealable text as-is (<leader>uc toggles concealing)
 opt.guicursor =
     "n-v-c:block,i-ci-ve:ver25,r-cr:hor20,o:hor50,a:blinkwait700-blinkoff400-blinkon250-Cursor/lCursor,sm:block-blinkwait175-blinkoff150-blinkon175"
 
 -------------------------------------------------------------------------------
 -- CUSTOM HIGHLIGHTS (Line Numbers)
 -------------------------------------------------------------------------------
-vim.api.nvim_set_hl(0, "LineNr", { fg = "white", bold = true })
-vim.api.nvim_set_hl(0, "LineNrAbove", { fg = "#85c1dc", bold = true })
-vim.api.nvim_set_hl(0, "LineNrBelow", { fg = "#e78284", bold = true })
+-- Set in the colorscheme's `custom_highlights` (plugins/ui/theme/cattpuccin.lua)
+-- rather than here: set here, they were overwritten by the colorscheme (LineNr)
+-- or wiped on the next reload, e.g. by the <leader>ub background toggle.
 
 -------------------------------------------------------------------------------
 -- SEARCH SETTINGS

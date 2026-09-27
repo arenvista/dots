@@ -41,8 +41,6 @@ config = function()
                 row = 0,
                 col = 1
             },
-        }
-        require('gitsigns').setup{
             on_attach = function(bufnr)
                 local gitsigns = require('gitsigns')
 
@@ -59,7 +57,7 @@ config = function()
                     else
                         gitsigns.nav_hunk('next')
                     end
-                end)
+                end, { desc = "Next Git Hunk" })
 
                 map('n', '[c', function()
                     if vim.wo.diff then
@@ -67,7 +65,7 @@ config = function()
                     else
                         gitsigns.nav_hunk('prev')
                     end
-                end)
+                end, { desc = "Prev Git Hunk" })
 
                 -- Actions
                 -- map('n', '<leader>hs', gitsigns.stage_hunk)
@@ -83,7 +81,7 @@ config = function()
                 -- map('n', '<leader>hD', function() gitsigns.diffthis('~') end)
 
                 -- Text object
-                map({'o', 'x'}, 'ih', ':<C-U>Gitsigns select_hunk<CR>')
+                map({'o', 'x'}, 'ih', ':<C-U>Gitsigns select_hunk<CR>', { desc = "Git Hunk" })
             end
         }
     end,

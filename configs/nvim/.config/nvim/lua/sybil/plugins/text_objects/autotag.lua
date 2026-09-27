@@ -1,6 +1,8 @@
 return {
     "windwp/nvim-ts-autotag",
-    lazy=true,
+    -- Was `lazy = true` with no trigger, so it never loaded. These are the two
+    -- events its README suggests if you lazy-load it at all.
+    event = { "BufReadPre", "BufNewFile" },
     config = function ()
         require('nvim-ts-autotag').setup({
             opts = {

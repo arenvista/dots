@@ -86,7 +86,7 @@ return {
                     max_height = 40,
                 },
                 math = {
-                    enabled = true, -- enable math expression rendering
+                    enabled = false, -- enable math expression rendering
                     -- in the templates below, `${header}` comes from any section in your document,
                     -- between a start/end header comment. Comment syntax is language-specific.
                     -- * start comment: `// snacks: header start`
@@ -146,6 +146,19 @@ return {
     end,
     config = function(_, opts)
         require("snacks").setup(opts)
+        -- No scope detection in markdown. The indent guides' scope listener
+        -- runs `parser:parse(true)` 30ms after every cursor move -- a parse of
+        -- the whole note *with every injection*, which in a math-heavy note is
+        -- hundreds of Typst trees. It was the single biggest parse cost per
+        -- keystroke, and it also fights the highlighter's visible-range parse
+        -- (see queries/markdown/injections.scm). Scopes in prose buy nothing.
+        vim.api.nvim_create_autocmd("FileType", {
+            group = vim.api.nvim_create_augroup("sybil-snacks-scope-markdown", { clear = true }),
+            pattern = "markdown",
+            callback = function(ev)
+                vim.b[ev.buf].snacks_scope = false
+            end,
+        })
         -- require("milli").snacks({ splash = MILI_SHADER, loop = true })
     end,
 }

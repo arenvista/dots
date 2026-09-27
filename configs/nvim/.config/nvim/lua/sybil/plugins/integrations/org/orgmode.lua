@@ -12,6 +12,9 @@ return {
 	event = "VeryLazy",
     ft = "org",
 	config = function()
+		local Menu = require("org-modern.menu")
+
+		-- One setup() call; the ui.menu handler used to be a second call.
 		require("orgmode").setup({
 			-- See => https://github.com/nvim-orgmode/orgmode/blob/master/docs/configuration.org
 			org_agenda_files = "~/orgfiles/**/*",
@@ -40,7 +43,6 @@ return {
 			},
 			org_deadline_warning_days = 0,
 			org_agenda_current_time_string = "↞―― CURRENT ―――",
-			vim.api.nvim_set_hl(0, "@org.agenda.time_grid", { fg = "#5c5f77", bold = true }),
 
 			org_agenda_custom_commands = {
 				-- "c" is the shortcut that will be used in the prompt
@@ -104,30 +106,6 @@ return {
 					},
 				},
 			},
-		})
-
-		require("org-bullets").setup({
-			concealcursor = false,
-			symbols = {
-				list = "•",
-				headlines = {
-					{ "◉", "MyBulletL1" },
-					{ "○", "MyBulletL2" },
-					{ "⏵", "MyBulletL3" },
-					{ "⏩", "MyBulletL4" },
-				},
-				checkboxes = {
-					half = { "⍻", "@org.checkbox.halfchecked" },
-					done = { "✓", "@org.keyword.done" },
-					todo = { "", "@org.keyword.todo" },
-				},
-				vim.api.nvim_set_hl(0, "@org.checkbox.halfchecked", { link = "@constructor" }),
-			},
-		})
-
-		local Menu = require("org-modern.menu")
-
-		require("orgmode").setup({
 			ui = {
 				menu = {
 					handler = function(data)
@@ -144,6 +122,28 @@ return {
 							},
 						}):open(data)
 					end,
+				},
+			},
+		})
+		-- (These two used to be positional entries inside the option tables,
+		-- run as a side effect of building them.)
+		vim.api.nvim_set_hl(0, "@org.agenda.time_grid", { fg = "#5c5f77", bold = true })
+		vim.api.nvim_set_hl(0, "@org.checkbox.halfchecked", { link = "@constructor" })
+
+		require("org-bullets").setup({
+			concealcursor = false,
+			symbols = {
+				list = "•",
+				headlines = {
+					{ "◉", "MyBulletL1" },
+					{ "○", "MyBulletL2" },
+					{ "⏵", "MyBulletL3" },
+					{ "⏩", "MyBulletL4" },
+				},
+				checkboxes = {
+					half = { "⍻", "@org.checkbox.halfchecked" },
+					done = { "✓", "@org.keyword.done" },
+					todo = { "", "@org.keyword.todo" },
 				},
 			},
 		})

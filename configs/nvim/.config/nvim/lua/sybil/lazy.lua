@@ -30,5 +30,4 @@ require("lazy").setup({
         notify = false,
     },
 })
-vim.opt.laststatus = 1
 vim.cmd.colorscheme("catppuccin-frappe")

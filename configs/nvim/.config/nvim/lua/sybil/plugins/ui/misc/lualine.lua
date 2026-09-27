@@ -13,34 +13,21 @@ return {
 				},
 			},
 			sections = {
-				-- Add the macro recording status in the mode section
+				-- Add the macro recording status in the mode section.
+				-- lualine's own `mode` component supplies the names (NORMAL,
+				-- V-BLOCK, O-PENDING, ...); the hand-rolled table this replaces
+				-- keyed V-BLOCK/S-BLOCK as the two-character strings "^V"/"^S",
+				-- which never match the real "\22"/"\19", so those modes showed
+				-- a raw control character.
 				lualine_a = {
-					function()
-						local reg = vim.fn.reg_recording()
-						-- If a macro is being recorded, show "Recording @<register>"
-						if reg ~= "" then
-							return "Recording @" .. reg
-						else
-							-- Get the full mode name using nvim_get_mode()
-							local mode = vim.api.nvim_get_mode().mode
-							local mode_map = {
-								n = "NORMAL",
-								i = "INSERT",
-								v = "VISUAL",
-								V = "V-LINE",
-								["^V"] = "V-BLOCK",
-								c = "COMMAND",
-								R = "REPLACE",
-								s = "SELECT",
-								S = "S-LINE",
-								["^S"] = "S-BLOCK",
-								t = "TERMINAL",
-							}
-
-							-- Return the full mode name
-							return mode_map[mode] or mode:upper()
-						end
-					end,
+					{
+						"mode",
+						fmt = function(mode)
+							local reg = vim.fn.reg_recording()
+							-- If a macro is being recorded, show "Recording @<register>"
+							return reg ~= "" and ("Recording @" .. reg) or mode
+						end,
+					},
 				},
 			},
 		})

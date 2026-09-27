@@ -12,10 +12,10 @@ return {
   -- correctly in terminal mode -- the command text ends up typed into the
   -- terminal instead of being executed.
   keys = {
-    { "<c-h>", "<cmd>TmuxNavigateLeft<cr>" },
-    { "<c-j>", "<cmd>TmuxNavigateDown<cr>" },
-    { "<c-k>", "<cmd>TmuxNavigateUp<cr>" },
-    { "<c-l>", "<cmd>TmuxNavigateRight<cr>" },
-    { "<c-\\>", "<cmd>TmuxNavigatePrevious<cr>" },
+    { "<c-h>", "<cmd>TmuxNavigateLeft<cr>", desc = "Navigate left" },
+    { "<c-j>", "<cmd>TmuxNavigateDown<cr>", desc = "Navigate down" },
+    { "<c-k>", "<cmd>TmuxNavigateUp<cr>", desc = "Navigate up" },
+    { "<c-l>", "<cmd>TmuxNavigateRight<cr>", desc = "Navigate right" },
+    { "<c-\\>", "<cmd>TmuxNavigatePrevious<cr>", desc = "Navigate to previous pane" },
   },
 }

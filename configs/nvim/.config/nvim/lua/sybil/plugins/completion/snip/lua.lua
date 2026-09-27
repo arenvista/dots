@@ -4,7 +4,11 @@ local s = ls.snippet
 local t = ls.text_node
 local i = ls.insert_node
 
-ls.add_snippets("lua", {
+-- Lua snippets. Named after the filetype like every other file here: the
+-- loader files a module's returned snippets under its basename. (This used
+-- to be snip.lua calling ls.add_snippets("lua", ...) as a side effect, which
+-- only worked while every file was loaded eagerly.)
+return {
   -- Trigger is "fn", expands to a function block
   s("fn", {
     t("local function "),
@@ -16,4 +20,4 @@ ls.add_snippets("lua", {
     i(0),                -- Final cursor position
     t({ "", "end" }),    -- New line + end
   }),
-})
+}

@@ -25,22 +25,11 @@ return {
     config = function()
         local cmp = require("cmp")
         local compare = cmp.config.compare
-        local luasnip = require("luasnip")
+        local luasnip = require("luasnip") -- options live in luasnip.lua
         local lspkind = require("lspkind")
-        luasnip.setup({
-            enable_autosnippets = true,
-            -- Which math snippets a markdown buffer sees depends on the syntax
-            -- it is set to -- see lua/sybil/core/mdmath.lua and `:MdMath`.
-            -- Other filetypes fall through to LuaSnip's default behaviour,
-            -- which is this same split plus the `filetype_extend` chains.
-            ft_func = function()
-                local fts = vim.split(vim.bo.filetype, ".", { plain = true })
-                if vim.bo.filetype == "markdown" then
-                    local mode = require("sybil.core.mdmath").get(0)
-                    table.insert(fts, mode == "latex" and "mathmode" or "typstmath")
-                end
-                return fts
-            end,
+        local lspkind_format = lspkind.cmp_format({
+            maxwidth = 50,
+            ellipsis_char = "...",
         })
         cmp.setup({
             sorting = {
@@ -65,6 +54,7 @@ return {
                 -- ["<C-Space>"] = cmp.mapping.complete(),
                 -- ["<C-Backspace>"] = cmp.mapping.abort(),
                 ["<C-b>"] = cmp.mapping.scroll_docs(-4),
+                ["<C-f>"] = cmp.mapping.scroll_docs(4),
                 ["<CR>"] = cmp.mapping.confirm({ select = false }),
             }),
             -- sources for autocompletion
@@ -88,12 +78,21 @@ return {
                 { name = "luasnip", priority = 10000 },
             }),
 
-            -- configure lspkind for vs-code like pictograms in completion menu
+            -- colorful-menu.nvim renders each label with the language's own
+            -- tree-sitter highlights (it was installed but never hooked in here,
+            -- so it did nothing); lspkind then adds the vs-code like pictogram.
+            -- colorful-menu truncates to the same 50 cells itself (see
+            -- colorful-menu.lua), so lspkind's maxwidth only ever trims the
+            -- entries colorful-menu does not handle and highlights stay aligned.
             formatting = {
-                format = lspkind.cmp_format({
-                    maxwidth = 50,
-                    ellipsis_char = "...",
-                }),
+                format = function(entry, vim_item)
+                    local highlights_info = require("colorful-menu").cmp_highlights(entry)
+                    if highlights_info ~= nil then
+                        vim_item.abbr_hl_group = highlights_info.highlights
+                        vim_item.abbr = highlights_info.text
+                    end
+                    return lspkind_format(entry, vim_item)
+                end,
             },
         })
         cmp.setup.cmdline(":", {

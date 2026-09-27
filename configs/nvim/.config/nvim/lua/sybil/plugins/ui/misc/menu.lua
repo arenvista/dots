@@ -1,9 +1,5 @@
--- Menu ui for neovim ( supports nested menus )
+-- Menu ui for neovim ( supports nested menus ). Opened with <C-t> (maps.lua).
 return {
 	{ "nvzone/volt", lazy = true },
 	{ "nvzone/menu", lazy = true },
-
-	vim.keymap.set("n", "<C-t>", function()
-		require("menu").open("default")
-	end, {}),
 }

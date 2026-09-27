@@ -11,8 +11,9 @@ They live in two files:
 | `typstmath.lua` | `typstmath`  | Everything that goes _inside_ `$ … $` — 78 snippets, 38 of them auto |
 | `typst.lua`     | `typst`      | `.typ` markup, scripting, preamble, `template.typ` helpers — 88 snippets, 2 auto |
 
-`typstmath` is not a real filetype; `../luasnip.lua` pulls it into both `typst`
-and `markdown` with `filetype_extend`.
+`typstmath` is not a real filetype; `../luasnip.lua` pulls it into `typst` with
+`filetype_extend`, and into `markdown` per buffer through its `ft_func` (see
+[Markdown](#markdown)).
 
 **Math in markdown is Typst too, not LaTeX.** See [Markdown](#markdown) below.
 
@@ -26,8 +27,7 @@ and `markdown` with `filetype_extend`.
 | `<S-Tab>` | insert, select | Jump to the previous placeholder                                             |
 | —         | insert         | **Autosnippets** fire the instant you finish typing the trigger — no `<Tab>` |
 
-Both maps are set in `../luasnip.lua`; `enable_autosnippets = true` is set in
-`../nvim-cmp.lua`.
+Both maps, and `enable_autosnippets = true`, are set in `../luasnip.lua`.
 
 ## The one design rule
 

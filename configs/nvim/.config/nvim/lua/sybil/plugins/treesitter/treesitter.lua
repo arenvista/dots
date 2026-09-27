@@ -7,11 +7,17 @@ return {
             error("Please restart Neovim and run `:TSUpdate` to use the `nvim-treesitter` **main** branch.")
             return
         end
+        -- Parsers must match the plugin's queries, so update them whenever the
+        -- plugin itself is updated (the README's `build = ":TSUpdate"`).
+        TS.update(nil, { summary = true })
     end,
     event = { "BufReadPost", "BufNewFile" },
     cmd = { "TSUpdate", "TSInstall", "TSLog", "TSUninstall" },
     opts = {
-        highlight = { enable = true },
+        -- (Highlighting is started per buffer by the FileType autocmd in
+        -- `config`; the main branch has no `highlight` option.)
+        -- Installed by `config` below if missing -- the main branch's setup()
+        -- ignores this list.
         ensure_installed = {
             "bash",
             "c",
@@ -29,6 +35,7 @@ return {
             "python",
             "query",
             "regex",
+            "sql", -- injected into python `.execute("...")` (queries/python/injections.scm)
             "toml",
             "tsx",
             "typescript",
@@ -66,6 +73,17 @@ return {
         end
 
         TS.setup(opts)
+
+        -- The main branch's setup() only understands `install_dir`, so
+        -- ensure_installed was never acted on: a fresh machine got no parsers.
+        -- Install whatever is missing (async; compiled with the tree-sitter CLI).
+        local installed = TS.get_installed()
+        local missing = vim.tbl_filter(function(lang)
+            return not vim.tbl_contains(installed, lang)
+        end, opts.ensure_installed)
+        if #missing > 0 then
+            TS.install(missing, { summary = true })
+        end
 
         -- 1. Global folding defaults
         vim.opt.foldenable = true       -- Enable folding at startup

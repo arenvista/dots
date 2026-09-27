@@ -1,25 +1,45 @@
 local wk = require("which-key")
 local keymap = vim.keymap
 
--- ==========================================================
--- LEADER KEYS
--- ==========================================================
-vim.g.mapleader = " "
-vim.g.localleader = "\\"
-
-_G.Snacks = Snacks -- Snacks is defined in snacks.lua; loaded before this file.
+-- Leader keys are set in core/options.lua, which runs before lazy.nvim: they
+-- have to be in place before any plugin defines a <leader> mapping.
+--
+-- Icons: every glyph in this file is a Nerd Font `md-*` icon (U+F0000 and up).
+-- The entries that showed up blank in which-key had icon strings that were
+-- only spaces -- their glyphs, all from the lower private-use block
+-- (U+E000-F8FF), were missing -- while every md-* glyph was intact.
 
 -- ==========================================================
 -- STANDARD KEYMAPS (non-leader)
 -- ==========================================================
-keymap.set("n", "<C-f>f", "<cmd>silent !tmux neww tmux-sessionizer<CR>", { desc = "Tmux Sessionizer" })
-keymap.set("n", "<C-f>s", "<cmd>silent !tmux neww tmux-attacher<CR>", { desc = "Tmux Attacher" })
+wk.add({
+    { "<c-f>", group = "Tmux", icon = "󰢩 " },
+    {
+        "<c-f>f",
+        "<cmd>silent !tmux neww tmux-sessionizer<CR>",
+        desc = "Tmux Sessionizer",
+        icon = "󰉕 ",
+    },
+    { "<c-f>s", "<cmd>silent !tmux neww tmux-attacher<CR>", desc = "Tmux Attacher", icon = "󱘖 " },
 
-keymap.set({ "n", "i", "v" }, "<C-c>", "<Esc>", { desc = "Rebind ESC to CTRL+C" })
-keymap.set({ "n", "i", "v" }, "<Del>", "<Esc>")
+    { "<C-c>", "<Esc>", desc = "Rebind ESC to CTRL+C", mode = { "n", "i", "v" }, icon = "󱊷 " },
+    { "<Del>", "<Esc>", desc = "Escape", mode = { "n", "i", "v" }, icon = "󱊷 " },
 
-keymap.set("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move highlighted lines down" })
-keymap.set("v", "K", ":m '<-2<CR>gv=gv", { desc = "Move highlighted lines up" })
+    -- nvzone/menu (menu.lua); the require loads it on first use.
+    {
+        "<C-t>",
+        function()
+            require("menu").open("default")
+        end,
+        desc = "Menu",
+        icon = "󰍜 ",
+    },
+})
+
+-- "x", not "v": "v" also covers Select mode, which is where snippet
+-- placeholders live -- typing a J or K into one moved lines instead.
+keymap.set("x", "J", ":m '>+1<CR>gv=gv", { desc = "Move highlighted lines down", silent = true })
+keymap.set("x", "K", ":m '<-2<CR>gv=gv", { desc = "Move highlighted lines up", silent = true })
 
 -- Terminal-mode window navigation (Claude Code pane, :terminal, snacks terminal).
 -- Defined here rather than in the vim-tmux-navigator lazy spec: lazy's `keys`
@@ -35,25 +55,40 @@ for key, dir in pairs({ h = "Left", j = "Down", k = "Up", l = "Right" }) do
     )
 end
 
+-- Icons for vim-tmux-navigator's normal-mode keys (defined in tmux-nav.lua).
+-- `real = true`: shown only while the keymap itself exists.
+wk.add({
+    { "<c-h>", icon = "󰁍 ", real = true },
+    { "<c-j>", icon = "󰁅 ", real = true },
+    { "<c-k>", icon = "󰁝 ", real = true },
+    { "<c-l>", icon = "󰁔 ", real = true },
+    { "<c-\\>", icon = "󰓡 ", real = true },
+})
+
 -- ==========================================================
 -- WHICH-KEY GROUPS
 -- ==========================================================
+-- Declared for visual mode too: otherwise <leader>a/b/f/g showed up unnamed
+-- and without icons there.
 wk.add({
+    mode = { "n", "x" },
     { "<leader>b", group = "Buffer", icon = "󰓩 " },
     { "<leader>q", group = "Quit & Session", icon = "󰗼 " },
-    { "<leader>s", group = "Search", icon = " " },
+    { "<leader>s", group = "Search", icon = "󰍉 " },
     { "<leader>l", group = "LSP", icon = "󱐋 " },
-    { "<leader>x", group = "Registers", icon = "󱉵 " },
-    { "<leader>u", group = "Toggle", icon = " " },
+    { "<leader>la", group = "Calls", icon = "󰃻 " },
+    { "<leader>u", group = "Toggle", icon = "󰨚 " },
     { "<leader>g", group = "Git", icon = "󰊢 " },
+    { "<leader>gd", group = "Diff", icon = "󰢪 " },
     { "<leader>e", group = "Explorers", icon = "󰭈 " },
-    { "<leader>o", group = "Org", icon = " " },
-    { "<leader>f", group = "Finder", icon = "  " },
-    { "<leader><c-f>", group = "Tmux", icon = " " },
-    { "<leader>a", group = "AI", icon = "  " },
+    { "<leader>o", group = "Org", icon = "󰝖 " },
+    { "<leader>f", group = "Finder", icon = "󰥩 " },
+    { "<leader>a", group = "AI", icon = "󰚩 " },
     { "<leader>n", group = "Notifications", icon = "󰎟  " },
-    { "<leader>m", group = "Misc.", icon = "  " },
-    { "<leader>r", group = "Windows", icon = " " },
+    { "<leader>m", group = "Misc.", icon = "󰦭 " },
+    { "<leader>r", group = "Windows", icon = "󱂬 " },
+    { "[", group = "Prev", icon = "󰄽 " },
+    { "]", group = "Next", icon = "󰄾 " },
 })
 
 -- ==========================================================
@@ -70,6 +105,7 @@ wk.add({
         end,
         desc = "Format entire buffer with =",
         mode = "n",
+        icon = "󰉶 ",
     },
     {
         "<leader>bd",
@@ -77,21 +113,25 @@ wk.add({
             Snacks.bufdelete()
         end,
         desc = "Delete Buffer",
+        icon = "󰧧 ",
     },
+    -- Defined in conform.lua.
+    { "<leader>bc", mode = { "n", "x" }, icon = "󰁨 ", real = true },
 
-    -- Clipboard & Registers
-    { "<leader>y", [["+y]], desc = "which_key_ignore", mode = { "n", "v" }, icon = "" },
-    { "<leader>Y", [["+Y]], desc = "which_key_ignore", mode = "n", icon = "" },
-    { "<leader>p", [["_dP]], desc = "which_key_ignore", mode = "x", icon = "" },
-    { "<leader>p", [["+p]], desc = "which_key_ignore", mode = { "n", "v" }, icon = "" },
-    { "<leader>P", [["+P]], desc = "which_key_ignore", mode = { "n", "v" }, icon = "" },
+    -- Clipboard & Registers. "x" rather than "v" for the same reason as J/K.
+    -- (<leader>p used to have a second, visual-only `"_dP` mapping that this
+    -- one always overrode; the built-in visual `P` pastes without yanking.)
+    { "<leader>y", [["+y]], desc = "which_key_ignore", mode = { "n", "x" }, icon = "󰆏 " },
+    { "<leader>Y", [["+Y]], desc = "which_key_ignore", mode = "n", icon = "󰆏 " },
+    { "<leader>p", [["+p]], desc = "which_key_ignore", mode = { "n", "x" }, icon = "󰆒 " },
+    { "<leader>P", [["+P]], desc = "which_key_ignore", mode = { "n", "x" }, icon = "󰆒 " },
 
     -- Save, Quit & Window Close
-    { "<leader>w", "<cmd>w<CR>", desc = "which_key_ignore", mode = "n", icon = " " },
-    { "<leader>qa", "<cmd>qa<CR>", desc = "Quit All", mode = "n" },
-    { "<leader>qx", "<cmd>qa!<CR>", desc = "Quit All Force", mode = "n" },
+    { "<leader>w", "<cmd>w<CR>", desc = "which_key_ignore", mode = "n", icon = "󰠘 " },
+    { "<leader>qa", "<cmd>qa<CR>", desc = "Quit All", mode = "n", icon = "󰩈 " },
+    { "<leader>qx", "<cmd>qa!<CR>", desc = "Quit All Force", mode = "n", icon = "󰐥 " },
     { "<leader>qo", "<C-w>o", desc = "Close Others", icon = "󰈆 " },
-    { "<leader>qw", "<cmd>q<CR>", desc = "Close Window", mode = "n" },
+    { "<leader>qw", "<cmd>q<CR>", desc = "Close Window", mode = "n", icon = "󰖭 " },
     { "<c-x>", "<cmd>q<CR>", desc = "Close Window", mode = "n" },
 })
 
@@ -99,14 +139,23 @@ wk.add({
 -- EXPLORERS
 -- ==========================================================
 wk.add({
-    { "<leader>ee", vim.cmd.Neotree, desc = " Neotree", mode = "n" },
-    { "<leader>ea", "<cmd>AerialToggle!<CR>", desc = "Aerial", mode = "n" },
+    { "<leader>ee", vim.cmd.Neotree, desc = "Neotree", mode = "n", icon = "󰙅 " },
+    { "<leader>ea", "<cmd>AerialToggle!<CR>", desc = "Aerial", mode = "n", icon = "󰉺 " },
     {
         "<leader>eo",
         function()
             require("oil").open()
         end,
-        desc = "󰼙 Oil & Vinegar",
+        desc = "Oil & Vinegar",
+        icon = "󰼙 ",
+    },
+    {
+        "<leader>eu",
+        function()
+            require("undotree").toggle()
+        end,
+        desc = "Undotree",
+        icon = "󱘎 ",
     },
 })
 
@@ -208,7 +257,7 @@ wk.add({
             Snacks.picker.notifications()
         end,
         desc = "Find Notification History",
-        icon = " ",
+        icon = "󰂜 ",
     },
     {
         "<leader>fw",
@@ -229,19 +278,19 @@ wk.add({
         "<leader>gds",
         "<cmd>Gvdiffsplit!<CR>",
         desc = "Open Diff Split",
-        icon = "",
+        icon = "󰯌 ",
     },
     {
         "<leader>gdh",
         "<cmd>diffget //2<CR>",
         desc = "Get Left Hunk",
-        icon = "",
+        icon = "󰜳 ",
     },
     {
         "<leader>gdl",
         "<cmd>diffget //3<CR>",
         desc = "Get Right Hunk",
-        icon = "",
+        icon = "󰜶 ",
     },
     {
         "<leader>gb",
@@ -249,7 +298,7 @@ wk.add({
             Snacks.picker.git_branches()
         end,
         desc = "Git Branches",
-        icon = " ",
+        icon = "󰘬 ",
     },
     { "<leader>gf", "<cmd>tab Git<cr>", desc = "Fugitive", icon = "󰊤" },
     {
@@ -258,7 +307,7 @@ wk.add({
             Snacks.picker.git_log()
         end,
         desc = "Git Log",
-        icon = " ",
+        icon = "󰜘 ",
     },
     {
         "<leader>gL",
@@ -266,7 +315,7 @@ wk.add({
             Snacks.picker.git_log_line()
         end,
         desc = "Git Log Line",
-        icon = " ",
+        icon = "󰯔 ",
     },
     {
         "<leader>gs",
@@ -282,7 +331,7 @@ wk.add({
             Snacks.picker.git_stash()
         end,
         desc = "Git Stash",
-        icon = " ",
+        icon = "󱈎 ",
     },
     {
         "<leader>gD",
@@ -306,7 +355,7 @@ wk.add({
             Snacks.picker.gh_issue()
         end,
         desc = "GitHub Issues (open)",
-        icon = " ",
+        icon = "󰗖 ",
     },
     {
         "<leader>gI",
@@ -314,7 +363,7 @@ wk.add({
             Snacks.picker.gh_issue({ state = "all" })
         end,
         desc = "GitHub Issues (all)",
-        icon = " ",
+        icon = "󱇮 ",
     },
     {
         "<leader>gp",
@@ -330,7 +379,7 @@ wk.add({
             Snacks.picker.gh_pr({ state = "all" })
         end,
         desc = "GitHub Pull Requests (all)",
-        icon = " ",
+        icon = "󰓂 ",
     },
     {
         "<leader>gg",
@@ -346,7 +395,7 @@ wk.add({
             Snacks.gitbrowse()
         end,
         desc = "Git Browse",
-        mode = { "n", "v" },
+        mode = { "n", "x" },
         icon = "󰊢 ",
     },
 })
@@ -361,7 +410,7 @@ wk.add({
             Snacks.picker.registers()
         end,
         desc = "Search Registers",
-        icon = " ",
+        icon = "󱉬 ",
     },
     {
         "<leader>s/",
@@ -369,7 +418,7 @@ wk.add({
             Snacks.picker.search_history()
         end,
         desc = "Search History",
-        icon = " ",
+        icon = "󰋚 ",
     },
     {
         "<leader>sa",
@@ -377,7 +426,7 @@ wk.add({
             Snacks.picker.autocmds()
         end,
         desc = "Search Autocmds",
-        icon = " ",
+        icon = "󱐌 ",
     },
     {
         "<leader>sb",
@@ -385,7 +434,7 @@ wk.add({
             Snacks.picker.lines()
         end,
         desc = "Search Buffer Lines",
-        icon = " ",
+        icon = "󰺯 ",
     },
     {
         "<leader>sc",
@@ -393,7 +442,7 @@ wk.add({
             Snacks.picker.command_history()
         end,
         desc = "Search Command History",
-        icon = " ",
+        icon = "󰺅 ",
     },
     {
         "<leader>sC",
@@ -401,7 +450,7 @@ wk.add({
             Snacks.picker.commands()
         end,
         desc = "Search Commands",
-        icon = " ",
+        icon = "󰞷 ",
     },
     {
         "<leader>sd",
@@ -409,7 +458,7 @@ wk.add({
             Snacks.picker.diagnostics()
         end,
         desc = "Search Diagnostics",
-        icon = " ",
+        icon = "󰓙 ",
     },
     {
         "<leader>sD",
@@ -417,7 +466,7 @@ wk.add({
             Snacks.picker.diagnostics_buffer()
         end,
         desc = "Search Buffer Diagnostics",
-        icon = " ",
+        icon = "󰩌 ",
     },
     {
         "<leader>sh",
@@ -425,7 +474,7 @@ wk.add({
             Snacks.picker.help()
         end,
         desc = "Search Help Pages",
-        icon = " ",
+        icon = "󰘥 ",
     },
     {
         "<leader>sH",
@@ -433,7 +482,7 @@ wk.add({
             Snacks.picker.highlights()
         end,
         desc = "Search Highlights",
-        icon = " ",
+        icon = "󰸌 ",
     },
     {
         "<leader>si",
@@ -441,7 +490,7 @@ wk.add({
             Snacks.picker.icons()
         end,
         desc = "Search Icons",
-        icon = " ",
+        icon = "󰇲 ",
     },
     {
         "<leader>sj",
@@ -449,7 +498,7 @@ wk.add({
             Snacks.picker.jumps()
         end,
         desc = "Search Jumps",
-        icon = " ",
+        icon = "󰴠 ",
     },
     {
         "<leader>sk",
@@ -457,7 +506,7 @@ wk.add({
             Snacks.picker.keymaps()
         end,
         desc = "Search Keymaps",
-        icon = " ",
+        icon = "󰥻 ",
     },
     {
         "<leader>sl",
@@ -465,7 +514,7 @@ wk.add({
             Snacks.picker.loclist()
         end,
         desc = "Search Location List",
-        icon = " ",
+        icon = "󰟙 ",
     },
     {
         "<leader>sm",
@@ -473,7 +522,7 @@ wk.add({
             Snacks.picker.marks()
         end,
         desc = "Search Marks",
-        icon = " ",
+        icon = "󰃃 ",
     },
     {
         "<leader>sM",
@@ -481,7 +530,7 @@ wk.add({
             Snacks.picker.man()
         end,
         desc = "Search Man Pages",
-        icon = " ",
+        icon = "󱓷 ",
     },
     {
         "<leader>sp",
@@ -489,7 +538,7 @@ wk.add({
             Snacks.picker.lazy()
         end,
         desc = "Search Plugin Spec",
-        icon = " ",
+        icon = "󱐥 ",
     },
     {
         "<leader>sq",
@@ -497,7 +546,7 @@ wk.add({
             Snacks.picker.qflist()
         end,
         desc = "Search Quickfix List",
-        icon = " ",
+        icon = "󰉹 ",
     },
     {
         "<leader>sR",
@@ -505,7 +554,7 @@ wk.add({
             Snacks.picker.resume()
         end,
         desc = "Search Resume",
-        icon = " ",
+        icon = "󰦛 ",
     },
     {
         "<leader>su",
@@ -513,7 +562,7 @@ wk.add({
             Snacks.picker.undo()
         end,
         desc = "Search Undo History",
-        icon = " ",
+        icon = "󰕍 ",
     },
 })
 
@@ -559,13 +608,19 @@ local function goto_definition_or_css()
 end
 
 wk.add({
-    { "<leader>ld", goto_definition_or_css, desc = "Goto Definition / CSS Rule Search" },
+    {
+        "<leader>ld",
+        goto_definition_or_css,
+        desc = "Goto Definition / CSS Rule Search",
+        icon = "󰊕 ",
+    },
     {
         "<leader>lD",
         function()
             Snacks.picker.lsp_declarations()
         end,
         desc = "Goto Declaration",
+        icon = "󰅴 ",
     },
     {
         "<leader>lr",
@@ -574,6 +629,7 @@ wk.add({
         end,
         nowait = true,
         desc = "References",
+        icon = "󰌹 ",
     },
     {
         "<leader>li",
@@ -581,6 +637,7 @@ wk.add({
             Snacks.picker.lsp_implementations()
         end,
         desc = "Goto Implementation",
+        icon = "󱀫 ",
     },
     {
         "<leader>ly",
@@ -588,6 +645,7 @@ wk.add({
             Snacks.picker.lsp_type_definitions()
         end,
         desc = "Goto T[y]pe Definition",
+        icon = "󰰤 ",
     },
     {
         "<leader>lai",
@@ -595,6 +653,7 @@ wk.add({
             Snacks.picker.lsp_incoming_calls()
         end,
         desc = "C[a]lls Incoming",
+        icon = "󰃺 ",
     },
     {
         "<leader>lao",
@@ -602,6 +661,7 @@ wk.add({
             Snacks.picker.lsp_outgoing_calls()
         end,
         desc = "C[a]lls Outgoing",
+        icon = "󰃷 ",
     },
     {
         "<leader>ls",
@@ -609,6 +669,7 @@ wk.add({
             Snacks.picker.lsp_symbols()
         end,
         desc = "LSP Symbols",
+        icon = "󰠲 ",
     },
     {
         "<leader>lS",
@@ -616,6 +677,7 @@ wk.add({
             Snacks.picker.lsp_workspace_symbols()
         end,
         desc = "LSP Workspace Symbols",
+        icon = "󰇧 ",
     },
     {
         "<leader>lc",
@@ -623,6 +685,7 @@ wk.add({
             vim.lsp.buf.code_action()
         end,
         desc = "Code Action",
+        icon = "󰛩 ",
     },
     {
         "<leader>ln",
@@ -630,17 +693,31 @@ wk.add({
             vim.lsp.buf.rename()
         end,
         desc = "Rename Symbol",
+        icon = "󰑕 ",
     },
-    { "<leader>le", vim.diagnostic.open_float, desc = "Line Diagnostics (float)" },
+    {
+        "<leader>le",
+        vim.diagnostic.open_float,
+        desc = "Line Diagnostics (float)",
+        icon = "󰨄 ",
+    },
 })
 
--- Diagnostic navigation (mirrors ]t/[t and gitsigns' ]c/[c pattern)
-vim.keymap.set("n", "]d", function()
-    vim.diagnostic.jump({ count = 1, float = true })
-end, { desc = "Next Diagnostic" })
-vim.keymap.set("n", "[d", function()
-    vim.diagnostic.jump({ count = -1, float = true })
-end, { desc = "Prev Diagnostic" })
+-- Diagnostic navigation (mirrors ]t/[t and gitsigns' ]c/[c pattern).
+-- `on_jump` opens the float the way `float = true` did; that option is
+-- deprecated in 0.12 and warned on first use. Counts work too (3]d).
+local function diagnostic_jump(direction)
+    return function()
+        vim.diagnostic.jump({
+            count = direction * vim.v.count1,
+            on_jump = function(_, bufnr)
+                vim.diagnostic.open_float({ bufnr = bufnr, scope = "cursor", focus = false })
+            end,
+        })
+    end
+end
+vim.keymap.set("n", "]d", diagnostic_jump(1), { desc = "Next Diagnostic" })
+vim.keymap.set("n", "[d", diagnostic_jump(-1), { desc = "Prev Diagnostic" })
 
 -- ==========================================================
 -- MISC / WORD REFERENCES
@@ -653,13 +730,16 @@ wk.add({
         end,
         desc = "which_key_ignore",
     },
+    -- Normal mode only. They were also mapped in terminal mode, where `[[` and
+    -- `]]` then could not be typed (a [[wikilink]] into the Claude Code pane
+    -- jumped instead), and a lone `[` or `]` stalled for 'timeoutlen'.
     {
         "]]",
         function()
             Snacks.words.jump(vim.v.count1)
         end,
         desc = "Next Reference",
-        mode = { "n", "t" },
+        icon = "󰌹 ",
     },
     {
         "[[",
@@ -667,8 +747,39 @@ wk.add({
             Snacks.words.jump(-vim.v.count1)
         end,
         desc = "Prev Reference",
-        mode = { "n", "t" },
+        icon = "󰌹 ",
     },
+    -- Bracket motions defined elsewhere: todo-comments.lua and mini.indentscope.
+    { "]t", icon = "󰥪 ", real = true },
+    { "[t", icon = "󰥪 ", real = true },
+    { "]i", mode = { "n", "x" }, icon = "󰘡 ", real = true },
+    { "[i", mode = { "n", "x" }, icon = "󰘣 ", real = true },
+    -- which-key's own popup (whichkey.lua).
+    { "<leader>?", icon = "󰌓 ", real = true },
+    {
+        "<leader>md",
+        function()
+            require("datepicker").open({
+                week_start = "monday",
+                -- What happens when you press <CR> on a date
+                on_select = function(date)
+                    -- Example: Insert the ISO date (e.g., 2026-04-18) at the cursor
+                    vim.api.nvim_put({ date.iso }, "c", true, true)
+                end,
+            })
+        end,
+        desc = "Open date picker",
+        icon = "󰢧 ",
+    },
+})
+
+-- vim-table-mode's own visual-mode maps (vim-table-mode.lua). After the plugin
+-- loads they carry no description, so it is given here.
+wk.add({
+    mode = "x",
+    { "<leader>t", group = "Table", icon = "󰓫 " },
+    { "<leader>tt", desc = "Tableize", icon = "󰩵 ", real = true },
+    { "<leader>T", desc = "Tableize (Delimiter)", icon = "󱏂 ", real = true },
 })
 
 -- ==========================================================
@@ -681,6 +792,7 @@ wk.add({
             Snacks.notifier.show_history()
         end,
         desc = "Notification History",
+        icon = "󰂟 ",
     },
     {
         "<leader>nd",
@@ -688,6 +800,7 @@ wk.add({
             Snacks.notifier.hide()
         end,
         desc = "Dismiss All Notifications",
+        icon = "󰪑 ",
     },
     {
         "<leader>nl",
@@ -695,6 +808,7 @@ wk.add({
             require("noice").cmd("last")
         end,
         desc = "Last Message",
+        icon = "󰍪 ",
     },
     {
         "<leader>nh",
@@ -702,14 +816,18 @@ wk.add({
             require("noice").cmd("history")
         end,
         desc = "Message History",
+        icon = "󱅴 ",
     },
 })
 
 -- ==========================================================
--- TOGGLES (static)
+-- ORG
 -- ==========================================================
 wk.add({
-    { "<leader>oC", "<cmd>OrgBlocksToggle<cr>", desc = "Org calendar" },
+    { "<leader>oC", "<cmd>OrgBlocksToggle<cr>", desc = "Org calendar", icon = "󰸗 " },
+    -- orgmode's own global maps.
+    { "<leader>oa", icon = "󰃯 ", real = true },
+    { "<leader>oc", icon = "󰎝 ", real = true },
 })
 
 -- ==========================================================
@@ -722,6 +840,7 @@ wk.add({
             Snacks.zen()
         end,
         desc = "Toggle Zen Mode",
+        icon = "󱅻 ",
     },
     {
         "<leader>uZ",
@@ -729,6 +848,7 @@ wk.add({
             Snacks.zen.zoom()
         end,
         desc = "Toggle Zoom",
+        icon = "󰊓 ",
     },
     {
         "<c-/>",
@@ -736,6 +856,7 @@ wk.add({
             Snacks.terminal()
         end,
         desc = "Toggle Terminal",
+        icon = "󰆍 ",
     },
     {
         "<leader>u.",
@@ -743,6 +864,7 @@ wk.add({
             Snacks.scratch()
         end,
         desc = "Toggle Scratch Buffer",
+        icon = "󱞂 ",
     },
     {
         "<leader>uC",
@@ -750,11 +872,13 @@ wk.add({
             Snacks.picker.colorschemes()
         end,
         desc = "Colorschemes",
+        icon = "󰏘 ",
     },
     {
         "<leader>ut",
         "<cmd>TableModeToggle<CR>",
         desc = "Toggle Table Mode",
+        icon = "󰓰 ",
     },
 })
 
@@ -796,6 +920,28 @@ vim.api.nvim_create_autocmd("User", {
         Snacks.toggle.inlay_hints():map("<leader>uh")
         Snacks.toggle.indent():map("<leader>ug")
         Snacks.toggle.dim():map("<leader>uD")
+
+        -- Format on save, for this buffer (f) or everywhere (F). conform.lua
+        -- reads these flags. Previously <leader>ubf / <leader>ubF, which made
+        -- <leader>ub (above) both a toggle and a prefix.
+        Snacks.toggle({
+            name = "Format on Save (Buffer)",
+            get = function()
+                return not vim.b.disable_autoformat
+            end,
+            set = function(state)
+                vim.b.disable_autoformat = not state
+            end,
+        }):map("<leader>uf")
+        Snacks.toggle({
+            name = "Format on Save (Global)",
+            get = function()
+                return not vim.g.disable_autoformat
+            end,
+            set = function(state)
+                vim.g.disable_autoformat = not state
+            end,
+        }):map("<leader>uF")
 
         -- Inline math rendering: snacks.image replaces `$..$` / `$$..$$` with a
         -- rendered image, compiled as Typst or LaTeX depending on the buffer's
@@ -844,55 +990,107 @@ wk.add({
     { "<leader>rc", "<C-w>c", desc = "Close Window", icon = "󰅗" },
     { "<leader>ro", "<C-w>o", desc = "Close Others", icon = "󰅘" },
     { "<leader>r=", "<C-w>=", desc = "Equalize Size", icon = "=" },
-    { "<leader>rm", "<cmd>MaximizerToggle<CR>", desc = "Toggle Focus", icon = "" },
+    { "<leader>rm", "<cmd>MaximizerToggle<CR>", desc = "Toggle Focus", icon = "󰖯 " },
 })
 
-vim.keymap.set("n", "<a-h>", "<C-w>><C-w>>", { desc = "Move Window Left Twice" })
-vim.keymap.set("n", "<a-l>", "<C-w><<C-w><", { desc = "Move Window Right Twice" })
-vim.keymap.set("n", "<a-k>", "<C-w>+<C-w>+", { desc = "Move Window Upper Twice" })
-vim.keymap.set("n", "<a-j>", "<C-w>-<C-w>-", { desc = "Move Window Down Twice" })
+-- Resize by two cells. (These were described as "Move Window ... Twice", but
+-- they change the size, not the position.)
+wk.add({
+    { "<a-h>", "<C-w>><C-w>>", desc = "Increase Window Width", icon = "󰡎 " },
+    { "<a-l>", "<C-w><<C-w><", desc = "Decrease Window Width", icon = "󰡌 " },
+    { "<a-k>", "<C-w>+<C-w>+", desc = "Increase Window Height", icon = "󰡏 " },
+    { "<a-j>", "<C-w>-<C-w>-", desc = "Decrease Window Height", icon = "󰡍 " },
+})
 
 -- ==========================================================
 -- AI (Claude Code)
 -- ==========================================================
 wk.add({
-    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
-    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
-    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
-    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
-    { "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model" },
-    { "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
-    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude", icon = "󱙺 " },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude", icon = "󰓾 " },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude", icon = "󰐍 " },
     {
-        "<leader>as",
-        "<cmd>ClaudeCodeTreeAdd<cr>",
-        desc = "Add file",
-        ft = { "NvimTree", "neo-tree", "oil", "minifiles", "netrw", "snacks_picker_list" },
+        "<leader>aC",
+        "<cmd>ClaudeCode --continue<cr>",
+        desc = "Continue Claude",
+        icon = "󰙢 ",
     },
+    { "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model", icon = "󰧑 " },
+    { "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer", icon = "󰻭 " },
+    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "x", desc = "Send to Claude", icon = "󱅥 " },
+    -- In file trees, <leader>as adds the file under the cursor (autocmd below).
+    { "<leader>as", mode = "n", icon = "󱀹 ", real = true },
     -- Diff management
-    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
-    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff", icon = "󰗡 " },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff", icon = "󰜺 " },
+})
+
+-- Buffer-local, set per filetype. This was a which-key entry with an `ft`
+-- field, which which-key does not have (`:checkhealth which-key` reported it
+-- as an error), so the mapping ended up global.
+vim.api.nvim_create_autocmd("FileType", {
+    group = vim.api.nvim_create_augroup("sybil-claude-tree-add", { clear = true }),
+    pattern = { "NvimTree", "neo-tree", "oil", "minifiles", "netrw", "snacks_picker_list" },
+    callback = function(ev)
+        keymap.set("n", "<leader>as", "<cmd>ClaudeCodeTreeAdd<cr>", { buffer = ev.buf, desc = "Add file" })
+    end,
 })
 
 -- ==========================================================
 -- ARROW (Buffer Bookmarks)
 -- ==========================================================
--- Wrap in lazy requires so arrow.nvim only loads on first use (see arrow.lua `keys`).
-vim.keymap.set("n", "H", function()
-    require("arrow.persist").previous()
-end, { desc = "Go to previous Arrow mark" })
-vim.keymap.set("n", "L", function()
-    require("arrow.persist").next()
-end, { desc = "Go to next Arrow mark" })
-vim.keymap.set("n", "<c-s>", function()
-    require("arrow.persist").toggle()
-end, { desc = "Toggle Arrow mark at cursor" })
+-- Lazy requires, so arrow.nvim only loads on first use. They must not also be
+-- in arrow.lua's `keys` (see the comment there).
+wk.add({
+    {
+        "H",
+        function()
+            require("arrow.persist").previous()
+        end,
+        desc = "Go to previous Arrow mark",
+        icon = "󰁐 ",
+    },
+    {
+        "L",
+        function()
+            require("arrow.persist").next()
+        end,
+        desc = "Go to next Arrow mark",
+        icon = "󰁗 ",
+    },
+    {
+        "<c-s>",
+        function()
+            require("arrow.persist").toggle()
+        end,
+        desc = "Toggle Arrow mark at cursor",
+        icon = "󰃄 ",
+    },
+})
 
-for i = 1, 9 do
-    vim.keymap.set("n", "<A-" .. i .. ">", function()
-        require("arrow.persist").go_to(i)
-    end, { desc = "Jump to Arrow " .. i })
+-- <A-1>..<A-9> jump to marks 1-9 and <A-0> to mark 10. (<A-0> used to call
+-- go_to(0), which is not a valid index, so it did nothing.)
+local arrow_slot_icons = {
+    "󰎦 ",
+    "󰎩 ",
+    "󰎬 ",
+    "󰎮 ",
+    "󰎰 ",
+    "󰎵 ",
+    "󰎸 ",
+    "󰎻 ",
+    "󰎾 ",
+    "󰽾 ",
+}
+for i = 1, 10 do
+    wk.add({
+        {
+            "<A-" .. (i % 10) .. ">",
+            function()
+                require("arrow.persist").go_to(i)
+            end,
+            desc = "Jump to Arrow " .. i,
+            icon = arrow_slot_icons[i],
+        },
+    })
 end
-vim.keymap.set("n", "<A-0>", function()
-    require("arrow.persist").go_to(0)
-end, { desc = "Jump to Arrow 10" })

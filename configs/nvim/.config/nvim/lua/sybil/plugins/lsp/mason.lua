@@ -25,6 +25,9 @@ return {
         -- Formatters and linters only — language servers are installed by
         -- mason-lspconfig's ensure_installed (see lspconfig.lua).
         require("mason-tool-installer").setup({
+            -- Run the "anything missing?" check once the UI is up rather than
+            -- while the first file is being opened.
+            start_delay = 3000,
             ensure_installed = {
                 "prettier",
                 "prettierd",

@@ -5,7 +5,10 @@ return {
 	opts = {},
 	config = function()
 		require("catppuccin").setup({
-			flavour = "macchiato",
+			-- lazy.lua loads catppuccin-frappe; `background.dark` makes the
+			-- <leader>ub toggle come back to frappe instead of mocha.
+			flavour = "frappe",
+			background = { light = "latte", dark = "frappe" },
 			transparent_background = true,
 			show_end_of_buffer = false,
 			term_colors = true,
@@ -42,6 +45,12 @@ return {
 					NormalFloat = { bg = "NONE" },
 					-- Make the Border transparent
 					FloatBorder = { bg = "NONE" },
+					-- Line numbers: relative numbers above the cursor in sapphire,
+					-- below it in red (#85c1dc / #e78284 under frappe). Palette
+					-- colours rather than hex so a light flavour stays readable.
+					LineNr = { fg = colors.text, bold = true },
+					LineNrAbove = { fg = colors.sapphire, bold = true },
+					LineNrBelow = { fg = colors.red, bold = true },
 				}
 			end,
 

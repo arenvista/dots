@@ -92,8 +92,9 @@ return {
 			-- beyond the truncation point are ignored. When set to a float
 			-- between 0 and 1, it'll be treated as percentage of the width of
 			-- the window: math.floor(max_width * vim.api.nvim_win_get_width(0))
-			-- Default 60.
-			max_width = 60,
+			-- Default 60. 50 matches lspkind's maxwidth in nvim-cmp.lua, which
+			-- calls this plugin from its `formatting.format`.
+			max_width = 50,
 		})
 	end,
 }
