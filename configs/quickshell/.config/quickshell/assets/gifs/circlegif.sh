@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Usage:
-# ./mp4_to_circle_gif.sh output.gif [size] [fps]
+# ./circlegif.sh input.mp4 output.gif [size] [fps]
 
 set -e
 

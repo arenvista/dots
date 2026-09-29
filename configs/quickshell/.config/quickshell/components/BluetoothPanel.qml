@@ -1,6 +1,7 @@
 import Quickshell
 import "../Common"
 import Quickshell.Bluetooth
+import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -11,9 +12,10 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; right: true }
     margins { top: 40; right: root.btVisible ? 6 : -350 }
-    height: 460
+    implicitHeight: 460
     implicitWidth: 320
     color: "transparent"
+    WlrLayershell.keyboardFocus: root.btVisible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     Behavior on margins.right { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
 
     // Self-contained Bluetooth state from Quickshell.Bluetooth.
@@ -35,12 +37,60 @@ PanelWindow {
         return out
     }
     readonly property bool btScanning: adapter !== null && adapter.discovering
+    // Device we asked to pair; once BlueZ reports it paired, trust and connect
+    // it so a new headset is usable in one click.
+    property var pairingDevice: null
+    // Address of the paired device whose "forget" awaits a confirming click.
+    property string armedForget: ""
+    // BlueZ tracks discovery per client, and another one (e.g. blueman) may be
+    // scanning; only stop discovery this panel started.
+    property bool ownsDiscovery: false
+
+    // Nerd-font glyph for a BlueZ device icon name (audio-headset, input-mouse, ...).
+    function deviceGlyph(icon) {
+        if (!icon) return "󰂯"
+        if (icon.startsWith("audio-head")) return "󰋋"
+        if (icon.startsWith("audio")) return "󰓃"
+        if (icon === "input-mouse") return "󰍽"
+        if (icon === "input-keyboard") return "󰌌"
+        if (icon === "input-gaming") return "󰊴"
+        if (icon === "phone") return "󰄜"
+        if (icon === "computer") return "󰌢"
+        return "󰂯"
+    }
+
+    function forget(device) {
+        if (armedForget !== device.address) {
+            armedForget = device.address
+            disarmTimer.restart()
+            return
+        }
+        armedForget = ""
+        device.forget()
+    }
+
+    Timer { id: disarmTimer; interval: 3000; onTriggered: btPanel.armedForget = "" }
+
+    Connections {
+        target: btPanel.pairingDevice
+        function onPairedChanged() {
+            var d = btPanel.pairingDevice
+            if (!d || !d.paired) return
+            d.trusted = true
+            d.connect()
+            btPanel.pairingDevice = null
+        }
+    }
 
     // Stop discovery when the panel is dismissed.
     Connections {
         target: root
         function onBtVisibleChanged() {
-            if (!root.btVisible && btPanel.adapter) btPanel.adapter.discovering = false
+            if (!root.btVisible) {
+                if (btPanel.adapter && btPanel.ownsDiscovery) btPanel.adapter.discovering = false
+                btPanel.ownsDiscovery = false
+                btPanel.armedForget = ""
+            }
         }
     }
 
@@ -48,6 +98,12 @@ PanelWindow {
         anchors.fill: parent
         color: Theme.alpha(Theme.background, 0.7)
         radius: 20
+
+        // Takes the keyboard while the panel holds focus (see the grab in shell.qml).
+        Item {
+            focus: true
+            Keys.onEscapePressed: root.btVisible = false
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -99,13 +155,14 @@ PanelWindow {
                         radius: 10
                         color: btPairedMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
                         Behavior on color { ColorAnimation { duration: 120 } }
+                        readonly property bool forgetArmed: btPanel.armedForget === modelData.address
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: 10
                             anchors.rightMargin: 10
                             spacing: 10
                             StyledText {
-                                text: modelData.connected ? "󰂱" : "󰂲"
+                                text: btPanel.deviceGlyph(modelData.icon)
                                 color: modelData.connected ? Theme.color2 : Theme.color8
                                 font.pixelSize: 18
                             }
@@ -122,12 +179,13 @@ PanelWindow {
                                 }
                                 StyledText {
                                     text: {
+                                        if (forgetArmed) return "Click 󰆴 again to forget"
                                         if (modelData.state === BluetoothDeviceState.Connecting) return "Connecting..."
                                         if (modelData.connected)
                                             return "Connected" + (modelData.batteryAvailable ? " · " + Math.round(modelData.battery * 100) + "%" : "")
                                         return "Paired"
                                     }
-                                    color: Theme.color8
+                                    color: forgetArmed ? Theme.color1 : Theme.color8
                                     font.pixelSize: 9
                                 }
                             }
@@ -154,11 +212,12 @@ PanelWindow {
                                 width: 28
                                 height: 28
                                 radius: 8
-                                color: btForgetMa.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
+                                color: forgetArmed ? Theme.alpha(Theme.color1, 0.25)
+                                    : btForgetMa.containsMouse ? Qt.rgba(1,1,1,0.1) : "transparent"
                                 StyledText {
                                     anchors.centerIn: parent
                                     text: "󰆴"
-                                    color: Theme.color8
+                                    color: forgetArmed ? Theme.color1 : Theme.color8
                                     font.pixelSize: 12
                                 }
                                 MouseArea {
@@ -166,7 +225,7 @@ PanelWindow {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: modelData.forget()
+                                    onClicked: btPanel.forget(modelData)
                                 }
                             }
                         }
@@ -214,7 +273,12 @@ PanelWindow {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: if (btPanel.adapter) btPanel.adapter.discovering = !btPanel.adapter.discovering
+                        onClicked: {
+                            if (!btPanel.adapter) return
+                            var start = !btPanel.adapter.discovering
+                            btPanel.adapter.discovering = start
+                            btPanel.ownsDiscovery = start
+                        }
                     }
                 }
             }
@@ -243,7 +307,7 @@ PanelWindow {
                             anchors.rightMargin: 10
                             spacing: 10
                             StyledText {
-                                text: "󰂲"
+                                text: btPanel.deviceGlyph(modelData.icon)
                                 color: Theme.color8
                                 font.pixelSize: 16
                             }
@@ -266,7 +330,10 @@ PanelWindow {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: modelData.pair()
+                            onClicked: {
+                                btPanel.pairingDevice = modelData
+                                modelData.pair()
+                            }
                         }
                     }
                     ScrollBar.vertical: ScrollBar { active: true; width: 4 }

@@ -11,10 +11,5 @@ from .setup import FeatureSetup, SetupStep
 SETUP = FeatureSetup(
     feature_id="desktop.hyprland",
     steps=(
-        SetupStep(
-            'hyprpm plugin',
-            'hyprpm list | grep -q hyprscrolling || { hyprpm add https://github.com/hyprwm/hyprland-plugins && hyprpm enable hyprscrolling; }',
-            when='post',
-        ),
     ),
 )

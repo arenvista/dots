@@ -1,32 +1,30 @@
 -- HYPRLAND LUA CONFIG ------------------------------------------------------
--- Cleaned up from the hyprlang2lua output. Remaining TODOs are marked and are
--- the only things that still need eyes-on verification before a reload.
 
 local home = os.getenv("HOME")
 local mainMod = "SUPER"
 
+-- Cursor theme and size are set once here and reused by the env vars,
+-- `hyprctl setcursor` at startup, and the cursor submap's restore.
+-- 24 is a size Bibata actually ships (…22, 24, 28…); 25 isn't.
+local cursorTheme = "Bibata-Modern-Ice"
+local cursorSize = 24
+local cursorDefaults = { inactive_timeout = 3, hide_on_key_press = true }
+
 -- ENVIRONMENT VARIABLES ----------------------------------------------------
 
 hl.env("QT_QPA_PLATFORM", "wayland")
-hl.env("QT_QPA_PLATFORMTHEME", "qt5ct")
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
-hl.env("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
-hl.env("QT_STYLE_OVERRIDE", "kvantum")
--- Keep X, hyprcursor, and `hyprctl setcursor` sizes in sync (25 everywhere)
-hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")
-hl.env("XCURSOR_SIZE", "25")
-hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
-hl.env("HYPRCURSOR_SIZE", "25")
+hl.env("XCURSOR_THEME", cursorTheme)
+hl.env("XCURSOR_SIZE", tostring(cursorSize))
+hl.env("HYPRCURSOR_THEME", cursorTheme)
+hl.env("HYPRCURSOR_SIZE", tostring(cursorSize))
 -- Electron apps (Discord, VSCodium, ...) run natively on Wayland
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 
 -- CORE CONFIG ----------------------------------------------------------------
 
 hl.config({
-    cursor = {
-        inactive_timeout = 3,
-        hide_on_key_press = true,
-    },
+    cursor = cursorDefaults,
     xwayland = {
         force_zero_scaling = true,
     },
@@ -110,7 +108,13 @@ hl.monitor({ output = "DP-2", mode = "5120x1440@119.97", position = "auto", scal
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "1" }) -- catch-all fallback
 
 -- WORKSPACE RULES ------------------------------------------------------------
--- 1-2 on the laptop panel, 3-10 on the superultrawide.
+
+-- Dropdown terminal (SUPER+Return): the first toggle spawns kitty with the
+-- scratchterm class, which the window rule below floats at 85%x70%.
+hl.workspace_rule({ workspace = "special:scratchterm", on_created_empty = "kitty --class scratchterm" })
+
+-- Monitor pinning is currently disabled: a new workspace opens on whichever
+-- monitor is focused.
 
 -- hl.workspace_rule({ workspace = "1", default = false })
 
@@ -149,6 +153,7 @@ end
 
 local terminal = "kitty"
 local fileManager = "kitty -e yazi"
+local restartQuickshell = "pkill -x quickshell; quickshell"
 -- Fixed quoting: the wallpaper path is now interpolated once, cleanly, and ~
 -- is expanded in Lua rather than hoping the shell/rofi does it inside quotes.
 local menu = "rofi -show drun -theme-str \"dummywall{background-image:url('"
@@ -171,24 +176,32 @@ hl.bind(mainMod .. " + SHIFT + C", hl.dsp.window.close())
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind("ALT + Tab", hl.dsp.window.cycle_next({ next = true }))
 
--- Screenshots. The saved variant now also copies to the clipboard (tee) and
--- creates the target directory if it's missing.
-hl.bind(mainMod .. " + N", hl.dsp.exec_cmd([[sh -c 'geom=$(slurp) && sleep 0.3 && grim -g "$geom" - | wl-copy']]))
+-- Screenshots. The saved variant also copies to the clipboard (tee) and
+-- creates the target directory if it's missing. exec_cmd already runs through
+-- a shell, and slurp's overlay has no fade-out (see LAYER RULES), so grim can
+-- run as soon as the selection is made.
+hl.bind(mainMod .. " + N", hl.dsp.exec_cmd([[geom=$(slurp) && grim -g "$geom" - | wl-copy]]))
 hl.bind(
     mainMod .. " + SHIFT + N",
     hl.dsp.exec_cmd(
-        [[sh -c 'mkdir -p ~/Pictures/screenshots && geom=$(slurp) && sleep 0.3 && grim -g "$geom" - | tee ~/Pictures/screenshots/"$(date +%Y-%m-%d_%H-%M-%S)".png | wl-copy']]
+        [[mkdir -p ~/Pictures/screenshots && geom=$(slurp) && grim -g "$geom" - | tee ~/Pictures/screenshots/"$(date +%Y-%m-%d_%H-%M-%S)".png | wl-copy]]
     )
 )
 
-hl.bind(mainMod .. " + SHIFT + CTRL + ALT + l", hl.dsp.exec_cmd("hyprlock"))
+-- pidof guard: a second press while locked doesn't start another hyprlock
+hl.bind(mainMod .. " + SHIFT + CTRL + ALT + l", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))
 
--- Restart status bars
-hl.bind(mainMod .. " + b", hl.dsp.exec_cmd("~/.local/bin/start-quickshell.sh && ~/.config/waybar/launch.sh"))
+-- Restart quickshell (bar and panels)
+hl.bind(mainMod .. " + b", hl.dsp.exec_cmd(restartQuickshell))
+
+-- Quickshell panels, via the IpcHandler targets in quickshell's shell.qml
+hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("qs ipc call clipboard toggle"))
+hl.bind(mainMod .. " + D", hl.dsp.exec_cmd("qs ipc call dashboard toggle"))
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("qs ipc call wallpaper toggle"))
 
 -- KEYBINDS: SCROLLING LAYOUT -------------------------------------------------
--- All layout-aware ops go through hl.dsp.layout (layoutmsg) so the plugin
--- handles them, per the usual hyprscrolling gotcha.
+-- Layout-aware ops go through hl.dsp.layout (layoutmsg) so the built-in
+-- scrolling layout handles them.
 
 -- Focus
 hl.bind(mainMod .. " + l", hl.dsp.layout("focus r"))
@@ -244,6 +257,9 @@ for _, s in ipairs(specials) do
     hl.bind(mainMod .. " + SHIFT + " .. s.key, hl.dsp.window.move({ workspace = "special:" .. s.name }))
 end
 
+-- Dropdown terminal (see WORKSPACE RULES)
+hl.bind(mainMod .. " + Return", hl.dsp.workspace.toggle_special("scratchterm"))
+
 -- Scroll through workspaces
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
@@ -290,12 +306,11 @@ local kbptrConfig = home .. "/.config/hypr/config"
 
 -- Long-bracket strings so the inner shell quoting doesn't need escaping
 local cursorShow = [[hyprctl eval 'hl.config({ cursor = { inactive_timeout = 0, hide_on_key_press = false } })']]
-local cursorRestore = [[hyprctl eval 'hl.config({ cursor = { inactive_timeout = 3, hide_on_key_press = true } })']]
 local enterSubmap = [[hyprctl dispatch 'hl.dsp.submap("cursor")']]
-local exitSubmap = [[hyprctl dispatch 'hl.dsp.submap("reset")']]
 
--- Jump-then-fine-tune. Cursor settings are only touched once wl-kbptr
--- actually succeeds, so aborting the jump leaves the config untouched.
+-- Jump-then-fine-tune. wl-kbptr exits non-zero when cancelled
+-- (cancellation_status_code=1 in its config), so aborting the jump leaves the
+-- cursor settings and submap untouched.
 hl.bind(
     mainMod .. " + r",
     hl.dsp.exec_cmd("wl-kbptr -c '" .. kbptrConfig .. "' && " .. cursorShow .. " && " .. enterSubmap)
@@ -319,8 +334,12 @@ hl.define_submap("cursor", function()
     hl.bind("r", hl.dsp.exec_cmd("wlrctl pointer scroll -10 0"), { repeating = true })
     hl.bind("t", hl.dsp.exec_cmd("wlrctl pointer scroll 0 -10"), { repeating = true })
     hl.bind("g", hl.dsp.exec_cmd("wlrctl pointer scroll 0 10"), { repeating = true })
-    -- Exit & restore cursor settings
-    hl.bind("escape", hl.dsp.exec_cmd(cursorRestore .. "; " .. exitSubmap))
+    -- Exit & restore cursor settings. Runs in-process, and leaves the submap
+    -- first so the keyboard can't get stranded in it.
+    hl.bind("escape", function()
+        hl.dispatch(hl.dsp.submap("reset"))
+        hl.config({ cursor = cursorDefaults })
+    end)
 end)
 
 -- WINDOW RULES ---------------------------------------------------------------
@@ -332,10 +351,7 @@ hl.window_rule({
 
 -- Per-app opacity
 local appOpacity = {
-    { class = "Lorien", opacity = "0.8 1" },
-    { class = "sublime_text", opacity = "0.88 1" },
     { class = "(?i)thunar", opacity = "0.9 1" },
-    { class = "(?i)(vs)?codium", opacity = "0.88 1" },
     { class = "org.pwmt.zathura", opacity = "0.9 1" },
     { class = "firefox", opacity = "0.9 override 0.85 override" },
     { class = "obsidian", opacity = "0.88 1" },
@@ -362,18 +378,15 @@ hl.window_rule({
     name = "scratchterm",
     match = { class = "scratchterm" },
     float = true,
-    size = "85% 70%",
+    size = { "monitor_w * 0.85", "monitor_h * 0.7" },
     center = true,
 })
 
 -- LAYER RULES ----------------------------------------------------------------
--- The converter mangled these: "ignore_alpha 0" ended up as the namespace and
--- the four "blur on" rules lost their targets. Reconstructed as blur +
--- ignore_alpha per surface namespace.
--- TODO: verify namespaces with `hyprctl layers` — especially the swaync and
--- quickshell ones, which vary by version.
+-- Blur behind each surface; ignore_alpha = 0 leaves fully transparent pixels
+-- unblurred. "quickshell" is confirmed via `hyprctl layers`.
 
-for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "quickshell" }) do
+for _, ns in ipairs({ "rofi", "swaync-control-center", "quickshell" }) do
     hl.layer_rule({
         match = { namespace = ns },
         blur = true,
@@ -381,31 +394,35 @@ for _, ns in ipairs({ "waybar", "rofi", "swaync-control-center", "quickshell" })
     })
 end
 
+-- slurp's selection overlay: no fade-out, so the screenshot binds can run
+-- grim immediately without capturing it
+hl.layer_rule({ match = { namespace = "selection" }, no_anim = true })
+
 -- STARTUP --------------------------------------------------------------------
 
 hl.on("hyprland.start", function()
-    -- Environment plumbing first, so everything launched after inherits it
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
-    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
-    hl.exec_cmd("systemctl --user start hyprpolkitagent")
+    -- Hyprland exports its session env to systemd/D-Bus itself, but not
+    -- necessarily before this hook runs. Chaining guarantees the polkit agent
+    -- (a systemd user unit) starts with WAYLAND_DISPLAY already exported.
+    hl.exec_cmd(
+        "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP && systemctl --user start hyprpolkitagent"
+    )
 
     -- Compositor-side setup
-    hl.exec_cmd("hyprctl setcursor Bibata-Modern-Ice 25")
-    hl.exec_cmd("hyprpm reload -n")
+    hl.exec_cmd("hyprctl setcursor " .. cursorTheme .. " " .. cursorSize)
     hl.exec_cmd("wal -R -n")
 
     -- Shell / UI
-    hl.exec_cmd("~/.config/waybar/launch.sh")
-    hl.exec_cmd("~/.local/bin/start-quickshell.sh")
+    hl.exec_cmd(restartQuickshell)
     hl.exec_cmd("swaync")
     hl.exec_cmd("awww-daemon")
 
     -- Background services
-    hl.exec_cmd("copyq --start-server")
-    hl.exec_cmd("mpd-mpris")
+    hl.exec_cmd("hypridle")
     hl.exec_cmd("kdeconnect-indicator")
     hl.exec_cmd("syncthing")
+    -- Loopback only: nothing in ~/.config/firefox should be reachable from the LAN
     hl.exec_cmd(
-        'miniserve "$HOME/.config/firefox/" --index home.html --header "Cache-Control: no-cache, no-store, must-revalidate"'
+        'miniserve -i 127.0.0.1 -i ::1 "$HOME/.config/firefox/" --index home.html --header "Cache-Control: no-cache, no-store, must-revalidate"'
     )
 end)

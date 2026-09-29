@@ -1,6 +1,9 @@
 return {
     "L3MON4D3/LuaSnip",
     event = "InsertEnter", -- Only loads when you start typing
+    -- ...or when a selection is cut for a snippet (`store_selection_keys`
+    -- below), which can come before the first InsertEnter of a session.
+    keys = { { "<Tab>", mode = "x", desc = "Cut selection for the next snippet" } },
     -- follow latest release.
     -- install jsregexp (optional!).
     build = "make install_jsregexp",
@@ -11,6 +14,11 @@ return {
         -- `load_ft_func` straight away for the buffer that triggered InsertEnter.
         ls.setup({
             enable_autosnippets = true,
+            -- <Tab> in visual mode cuts the selection and keeps it for the next
+            -- snippet: select a paragraph, <Tab>, `thm<Tab>`, and it becomes the
+            -- theorem's body. The Typst and markdown snippets read it from
+            -- LS_SELECT_RAW / LS_SELECT_DEDENT.
+            store_selection_keys = "<Tab>",
             -- Which math snippets a markdown buffer sees depends on the syntax
             -- it is set to -- see lua/sybil/core/mdmath.lua and `:MdMath`.
             -- Other filetypes fall through to LuaSnip's default behaviour,

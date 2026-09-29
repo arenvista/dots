@@ -88,16 +88,18 @@ pick_entries() {
     --height=50% --layout=reverse --border=rounded \
     --border-label=" ◤ $1 ◢ " \
     --prompt='  ' --pointer='▶' --marker='✗ ' \
-    --preview=$'echo "\033[1;35m{2}\033[0m"; echo "\033[2m{3}\033[0m"' \
+    --preview='printf "\033[1;35m%s\033[0m\n\033[2m%s\033[0m\n" {2} {3}' \
     --preview-window='down:3:border-top' \
     --color='border:magenta,label:bold:magenta,prompt:cyan,pointer:magenta' \
     "${@:2}"
 }
 
 # ── Rewrite the file with line $1 replaced by $2 (or deleted if $2 unset)
+# Works on the resolved path and copies its mode, so a symlinked CSV stays a
+# symlink and mktemp's 0600 doesn't replace the file's permissions.
 rewrite_line() {
-  local target="$1" replacement="$2" tmp n=0 line
-  tmp="$(mktemp "${CSV_FILE}.XXXXXX")"
+  local target="$1" replacement="$2" file="${CSV_FILE:A}" tmp n=0 line
+  tmp="$(mktemp "${file}.XXXXXX")"
   while IFS= read -r line || [[ -n "$line" ]]; do
     (( ++n ))
     if (( n == target )); then
@@ -105,8 +107,9 @@ rewrite_line() {
     else
       print -r -- "$line" >> "$tmp"
     fi
-  done < "$CSV_FILE"
-  mv -- "$tmp" "$CSV_FILE"
+  done < "$file"
+  chmod --reference="$file" -- "$tmp"
+  mv -- "$tmp" "$file"
 }
 
 format_entry() { printf '"%s", %s' "$1" "$2" }

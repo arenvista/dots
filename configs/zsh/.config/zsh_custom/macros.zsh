@@ -9,21 +9,37 @@ typeset -ga _fzf_ui=(
   --info=inline
 )
 
-# ── tmux widgets ────────────────────────────────────────────────────────
-
-tmux-csv-manager-widget() {
+# Run $1 as its own command line from a widget. push-input stashes any
+# half-typed command; it pops back at the next prompt. A leading space in $1
+# keeps the line out of history (hist_ignore_space).
+_zle_run() {
   zle push-input
-  BUFFER=" $HOME/.config/zsh_custom/macros/tmux-manager.zsh"
+  BUFFER=$1
   zle accept-line
 }
+
+# ── Launchers ───────────────────────────────────────────────────────────
+
+nvim-widget() { _zle_run nvim }
+zle -N nvim-widget
+bindkey '^n' nvim-widget
+
+yazi-widget() { _zle_run yazi }
+zle -N yazi-widget
+bindkey '^[o' yazi-widget
+
+# exec a fresh shell rather than re-sourcing .zshrc (see `reload` in aliases.zsh)
+reload-widget() { _zle_run ' exec zsh' }
+zle -N reload-widget
+bindkey '^[r' reload-widget   # Alt+r — bare Esc would swallow arrow keys etc.
+
+# ── tmux widgets ────────────────────────────────────────────────────────
+
+tmux-csv-manager-widget() { _zle_run " $HOME/.config/zsh_custom/macros/tmux-manager.zsh" }
 zle -N tmux-csv-manager-widget
 bindkey '^s' tmux-csv-manager-widget
 
-tmux-sessionizer-widget() {
-  zle push-input   # stash any half-typed command; it pops back at the next prompt
-  BUFFER=" $HOME/.config/zsh_custom/macros/tmux-sessionizer.zsh"
-  zle accept-line
-}
+tmux-sessionizer-widget() { _zle_run " $HOME/.config/zsh_custom/macros/tmux-sessionizer.zsh" }
 zle -N tmux-sessionizer-widget
 bindkey '^f' tmux-sessionizer-widget
 
@@ -55,46 +71,50 @@ function fzf-cd-shallow() {
 
     if [[ -n "$dir" ]]; then
         cd "$dir"
-        zle reset-prompt # Refreshes the prompt to show the new path
     fi
+    zle reset-prompt # Show the new path, or redraw after a cancel
 }
 zle -N fzf-cd-shallow
-bindkey '^w' fzf-cd-shallow
+bindkey '^[c' fzf-cd-shallow
 
-# Search running processes and kill one
+# Search your processes and kill them (tab: multi-select). Sends SIGTERM so
+# they can clean up; if one ignores it, up-arrow and add -9.
 function fzf-kill() {
-    local pid=$(ps -ef | sed 1d | fzf "${_fzf_ui[@]}" \
+    local pids=$(ps -u "$UID" -o pid,etime,%cpu,%mem,args | fzf "${_fzf_ui[@]}" \
     --prompt="󰆴 Kill PID: " \
+    --header-lines=1 \
+    --multi \
+    --accept-nth=1 \
     --preview 'echo {}' \
-    --preview-window='down:3:wrap' | awk '{print $2}')
+    --preview-window='down:3:wrap')
 
-    if [[ -n "$pid" ]]; then
-        BUFFER="kill -9 $pid"
-        zle accept-line
+    if [[ -n "$pids" ]]; then
+        _zle_run "kill ${(f)pids}"
     fi
     zle reset-prompt
 }
 zle -N fzf-kill
-bindkey '^x' fzf-kill
+bindkey '^[k' fzf-kill
 
-# Visually select and checkout a git branch
+# Visually select and checkout a git branch (most recent commits first)
 function fzf-checkout() {
     if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        echo "Not in a git repository."
-        zle reset-prompt
+        zle -M "Not in a git repository."
         return
     fi
 
-    local branch=$(git branch -a --color=always | grep -v '/HEAD\s' | sort | fzf "${_fzf_ui[@]}" \
+    # ' -> ' only appears on the remotes/*/HEAD alias: ref names can't hold spaces
+    local branch=$(git branch -a --sort=-committerdate --color=always \
+    | grep -v -e ' -> ' -e 'HEAD detached' | fzf "${_fzf_ui[@]}" \
     --prompt=" Checkout: " \
     --ansi \
     --preview 'git log --oneline --graph --color=always $(sed s/^..// <<< {} | cut -d" " -f1) | head -20' \
     --preview-window='right:50%:wrap' | \
     sed 's/^..//' | cut -d' ' -f1 | sed 's#^remotes/[^/]*/##')
 
+    # (q) quotes the name: git allows $(...) in branch names, and so do filenames
     if [[ -n "$branch" ]]; then
-        BUFFER="git checkout \"$branch\""
-        zle accept-line
+        _zle_run "git checkout ${(q)branch}"
     fi
     zle reset-prompt
 }
@@ -109,8 +129,7 @@ function fzf-edit() {
     --preview-window='right:50%:wrap')
 
     if [[ -n "$file" ]]; then
-        BUFFER="nvim \"$file\""
-        zle accept-line
+        _zle_run "nvim ${(q)file}"
     fi
     zle reset-prompt
 }

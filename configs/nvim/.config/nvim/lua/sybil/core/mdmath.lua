@@ -7,7 +7,7 @@
 --     rendering (it picks its template from the injected language).
 --   * which LuaSnip filetype markdown borrows its math snippets from --
 --     `typstmath` or `mathmode`.  See the `ft_func` in
---     ../plugins/completion/nvim-cmp.lua.
+--     ../plugins/completion/luasnip.lua.
 --
 -- The injection side is a custom `#md-math!` directive, registered here and used
 -- by queries/markdown_inline/injections.scm.  Tree-sitter injection queries are

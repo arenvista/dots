@@ -29,8 +29,10 @@ Singleton {
     // Named aliases kept for existing call sites.
     readonly property color color1: palette[1]
     readonly property color color2: palette[2]
+    readonly property color color3: palette[3]
     readonly property color color4: palette[4]
     readonly property color color5: palette[5]
+    readonly property color color6: palette[6]
     readonly property color color8: palette[8]
     readonly property color color13: palette[13]
 

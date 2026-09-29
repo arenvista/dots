@@ -2,6 +2,7 @@ import Quickshell
 import "../Common"
 import Quickshell.Io
 import Quickshell.Networking
+import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
@@ -12,9 +13,14 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     anchors { top: true; right: true }
     margins { top: 40; right: root.wifiVisible ? 6 : -350 }
-    height: 420
+    implicitHeight: 420
     implicitWidth: 320
     color: "transparent"
+    // Layer surfaces get no keyboard input by default. On demand while open:
+    // the focus grab (shell.qml) then hands this panel the keyboard, so the
+    // password field can be typed into and Escape closes. Not Exclusive,
+    // which would make Hyprland drop the grab and close the panel.
+    WlrLayershell.keyboardFocus: root.wifiVisible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     Behavior on margins.right { NumberAnimation { duration: 300; easing.type: Easing.OutCubic } }
 
     // Self-contained Wi-Fi state from Quickshell.Networking.
@@ -50,6 +56,23 @@ PanelWindow {
     readonly property bool wifiScanning: wifiDev !== null && wifiDev.scannerEnabled === true && wifiNetworks.length === 0
     property string wifiPasswordSSID: ""
     property var pendingNetwork: null
+    // Network of the last connect attempt, watched for connectionFailed.
+    property var lastAttempt: null
+    property string errorText: ""
+    // SSID whose "forget" awaits a confirming second click.
+    property string armedForget: ""
+
+    function forget(net) {
+        if (armedForget !== net.name) {
+            armedForget = net.name
+            forgetDisarm.restart()
+            return
+        }
+        armedForget = ""
+        net.forget()
+    }
+
+    Timer { id: forgetDisarm; interval: 3000; onTriggered: wifiPanel.armedForget = "" }
 
     // Scan only while the panel is open. Managed imperatively (rather than via a
     // Binding) so the refresh button can toggle the scanner without a binding
@@ -60,13 +83,84 @@ PanelWindow {
     onWifiDevChanged: syncScanner()
     Connections {
         target: root
-        function onWifiVisibleChanged() { wifiPanel.syncScanner() }
+        function onWifiVisibleChanged() {
+            wifiPanel.syncScanner()
+            // Never keep the exclusive keyboard grab on a hidden panel.
+            if (!root.wifiVisible) {
+                wifiPanel.cancelPassword()
+                wifiPanel.errorText = ""
+                wifiPanel.armedForget = ""
+            }
+        }
+    }
+
+    // Known/open networks connect directly; unknown secured ones prompt for a passphrase.
+    function connectTo(entry) {
+        errorText = ""
+        if (entry.secured && !entry.net.known) {
+            promptPassword(entry.net)
+        } else {
+            lastAttempt = entry.net
+            entry.net.connect()
+        }
+    }
+
+    function promptPassword(net) {
+        wifiPasswordSSID = net.name
+        pendingNetwork = net
+        wifiPassInput.text = ""
+        wifiPassInput.forceActiveFocus()
+    }
+
+    function submitPassword() {
+        if (wifiPassInput.text.length === 0 || !pendingNetwork) return
+        lastAttempt = pendingNetwork
+        pendingNetwork.connectWithPsk(wifiPassInput.text)
+        cancelPassword()
+    }
+
+    function cancelPassword() {
+        wifiPasswordSSID = ""
+        pendingNetwork = null
+        wifiPassInput.text = ""
+        keyCatcher.forceActiveFocus()
+    }
+
+    function failReason(reason) {
+        if (reason === ConnectionFailReason.NoSecrets) return "wrong password?"
+        if (reason === ConnectionFailReason.WifiAuthTimeout) return "authentication timed out"
+        if (reason === ConnectionFailReason.WifiNetworkLost) return "network lost"
+        return ConnectionFailReason.toString(reason)
+    }
+
+    Connections {
+        target: wifiPanel.lastAttempt
+        function onConnectionFailed(reason) {
+            var net = wifiPanel.lastAttempt
+            wifiPanel.errorText = "Couldn't join " + net.name + ": " + wifiPanel.failReason(reason)
+            // Missing/wrong secrets: ask again rather than leaving a dead end.
+            if (reason === ConnectionFailReason.NoSecrets && root.wifiVisible)
+                wifiPanel.promptPassword(net)
+        }
+        function onConnectedChanged() {
+            if (wifiPanel.lastAttempt && wifiPanel.lastAttempt.connected) {
+                wifiPanel.errorText = ""
+                wifiPanel.lastAttempt = null
+            }
+        }
     }
 
     Rectangle {
         anchors.fill: parent
         color: Theme.alpha(Theme.background, 0.7)
         radius: 20
+
+        // Takes the keyboard while the panel holds focus (see the grab in shell.qml).
+        Item {
+            id: keyCatcher
+            focus: true
+            Keys.onEscapePressed: root.wifiVisible = false
+        }
 
         ColumnLayout {
             anchors.fill: parent
@@ -119,8 +213,9 @@ PanelWindow {
                             Layout.fillWidth: true
                         }
                         StyledText {
-                            text: "Connected · " + wifiPanel.wifiSignal + "%"
-                            color: Theme.color8
+                            readonly property bool armed: wifiPanel.armedForget !== "" && wifiPanel.armedForget === wifiPanel.wifiCurrentSSID
+                            text: armed ? "Click 󰆴 again to forget" : "Connected · " + wifiPanel.wifiSignal + "%"
+                            color: armed ? Theme.color1 : Theme.color8
                             font.pixelSize: 10
                         }
                     }
@@ -143,6 +238,10 @@ PanelWindow {
                             onClicked: if (wifiPanel.wifiDev) wifiPanel.wifiDev.disconnect()
                         }
                     }
+                    ForgetButton {
+                        armed: wifiPanel.armedForget !== "" && wifiPanel.armedForget === wifiPanel.wifiCurrentSSID
+                        onClicked: if (wifiPanel.currentNetwork) wifiPanel.forget(wifiPanel.currentNetwork)
+                    }
                 }
             }
 
@@ -151,6 +250,8 @@ PanelWindow {
                 Layout.preferredHeight: 36
                 radius: 10
                 visible: wifiPanel.wifiPasswordSSID !== ""
+                border.width: wifiPassInput.activeFocus ? 1 : 0
+                border.color: Theme.color5
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 12
@@ -178,20 +279,12 @@ PanelWindow {
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             font: parent.font
+                            elide: Text.ElideRight
+                            width: parent.width
                         }
-                        Keys.onReturnPressed: {
-                            if (wifiPassInput.text.length > 0 && wifiPanel.pendingNetwork) {
-                                wifiPanel.pendingNetwork.connectWithPsk(wifiPassInput.text)
-                                wifiPanel.wifiPasswordSSID = ""
-                                wifiPanel.pendingNetwork = null
-                                wifiPassInput.text = ""
-                            }
-                        }
-                        Keys.onEscapePressed: {
-                            wifiPanel.wifiPasswordSSID = ""
-                            wifiPanel.pendingNetwork = null
-                            wifiPassInput.text = ""
-                        }
+                        Keys.onReturnPressed: wifiPanel.submitPassword()
+                        Keys.onEnterPressed: wifiPanel.submitPassword()
+                        Keys.onEscapePressed: wifiPanel.cancelPassword()
                     }
                     Rectangle {
                         width: 24
@@ -208,17 +301,19 @@ PanelWindow {
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (wifiPassInput.text.length > 0 && wifiPanel.pendingNetwork) {
-                                    wifiPanel.pendingNetwork.connectWithPsk(wifiPassInput.text)
-                                    wifiPanel.wifiPasswordSSID = ""
-                                    wifiPanel.pendingNetwork = null
-                                    wifiPassInput.text = ""
-                                }
-                            }
+                            onClicked: wifiPanel.submitPassword()
                         }
                     }
                 }
+            }
+
+            StyledText {
+                Layout.fillWidth: true
+                visible: wifiPanel.errorText !== ""
+                text: "󰀦 " + wifiPanel.errorText
+                color: Theme.color1
+                font.pixelSize: 10
+                wrapMode: Text.Wrap
             }
 
             RowLayout {
@@ -295,28 +390,30 @@ PanelWindow {
                                     Layout.fillWidth: true
                                 }
                                 StyledText {
-                                    text: (modelData.secured ? "󰌾 Secured" : "Open") + " · " + modelData.signal + "%"
-                                    color: Theme.color8
+                                    text: {
+                                        if (wifiPanel.armedForget === modelData.ssid) return "Click 󰆴 again to forget"
+                                        if (modelData.net.state === ConnectionState.Connecting) return "Connecting..."
+                                        return (modelData.secured ? "󰌾 Secured" : "Open")
+                                            + (modelData.net.known ? " · Saved" : "")
+                                            + " · " + modelData.signal + "%"
+                                    }
+                                    color: wifiPanel.armedForget === modelData.ssid ? Theme.color1 : Theme.color8
                                     font.pixelSize: 9
                                 }
+                            }
+                            ForgetButton {
+                                visible: modelData.net.known
+                                armed: wifiPanel.armedForget === modelData.ssid
+                                onClicked: wifiPanel.forget(modelData.net)
                             }
                         }
                         MouseArea {
                             id: wifiNetMa
                             anchors.fill: parent
+                            z: -1
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                // Known/open networks connect directly; unknown secured
-                                // ones prompt for a passphrase.
-                                if (modelData.secured && !modelData.net.known) {
-                                    wifiPanel.wifiPasswordSSID = modelData.ssid
-                                    wifiPanel.pendingNetwork = modelData.net
-                                    wifiPassInput.forceActiveFocus()
-                                } else {
-                                    modelData.net.connect()
-                                }
-                            }
+                            onClicked: wifiPanel.connectTo(modelData)
                         }
                     }
                     ScrollBar.vertical: ScrollBar { active: true; width: 4 }
@@ -336,6 +433,29 @@ PanelWindow {
                     font.pixelSize: 12
                 }
             }
+        }
+    }
+
+    component ForgetButton: Rectangle {
+        id: forgetBtn
+        property bool armed: false
+        signal clicked()
+        width: 28
+        height: 28
+        radius: 8
+        color: armed ? Theme.alpha(Theme.color1, 0.25) : forgetMa.containsMouse ? Qt.rgba(1, 1, 1, 0.1) : "transparent"
+        StyledText {
+            anchors.centerIn: parent
+            text: "󰆴"
+            color: forgetBtn.armed ? Theme.color1 : Theme.color8
+            font.pixelSize: 12
+        }
+        MouseArea {
+            id: forgetMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: forgetBtn.clicked()
         }
     }
 }

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Fill a Kitty theme template with colors from pywal's colors-kitty.conf.
+"""Fill a terminal theme template with colors from pywal's colors-kitty.conf.
+
+Usage: wal-template.py <template> <output> [wal_conf]
 
 Reads key/value pairs like `color4  #1B3D9F` from the wal cache, then
 replaces bracketed placeholders ([bg], [fg], [cursor], [color0]..[color15])
-in the template with the corresponding hex values.
+in the template with the corresponding hex values. applwal.sh runs it for
+the kitty and ghostty themes.
 
 Placeholders are matched as whole tokens via regex, so [color1] can never
 clobber part of [color10]-[color15].
@@ -13,9 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-WAL_CONF = Path("/home/sybil/.cache/wal/colors-kitty.conf")
-TEMPLATE = Path("/home/sybil/.config/kitty/theme-custom.template")
-OUTPUT = Path("/home/sybil/.config/kitty/current-theme.conf")
+WAL_CONF = Path.home() / ".cache" / "wal" / "colors-kitty.conf"
 
 # Template placeholder -> key name in the wal conf
 ALIASES = {
@@ -53,8 +54,8 @@ def fill_template(template_text: str, colors: dict[str, str]) -> str:
 
     result = re.sub(r"\[([A-Za-z0-9_]+)\]", substitute, template_text)
 
-    # Kitty rejects inline comments after values, so strip them.
-    # Only a '#' preceded AND followed by whitespace counts as a comment,
+    # Kitty and Ghostty both reject inline comments after values, so strip
+    # them. Only a '#' preceded AND followed by whitespace counts as a comment,
     # which leaves hex values like '#0c0c0d' untouched. Full-line comments
     # (lines starting with '#') are kept as-is.
     cleaned = []
@@ -73,10 +74,12 @@ def fill_template(template_text: str, colors: dict[str, str]) -> str:
 
 
 def main() -> int:
-    # Allow overriding paths: kitty-colorizer.py [wal_conf] [template] [output]
-    wal = Path(sys.argv[1]) if len(sys.argv) > 1 else WAL_CONF
-    template = Path(sys.argv[2]) if len(sys.argv) > 2 else TEMPLATE
-    output = Path(sys.argv[3]) if len(sys.argv) > 3 else OUTPUT
+    if len(sys.argv) not in (3, 4):
+        print("usage: wal-template.py <template> <output> [wal_conf]", file=sys.stderr)
+        return 2
+    template = Path(sys.argv[1])
+    output = Path(sys.argv[2])
+    wal = Path(sys.argv[3]) if len(sys.argv) > 3 else WAL_CONF
 
     if not wal.is_file():
         print(f"error: wal conf not found: {wal}", file=sys.stderr)

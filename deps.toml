@@ -93,7 +93,6 @@ desktop = [
     "desktop.portals",
     "desktop.lockscreen",
     "desktop.pointer",
-    "desktop.waybar",
     "desktop.quickshell",
     "desktop.notifications",
     "desktop.launcher",
@@ -128,20 +127,24 @@ pacman = [
     "zsh-autosuggestions",     # sourced by .zshrc
     "zsh-syntax-highlighting", # sourced by .zshrc
 ]
-aur = ["oh-my-zsh-git"] # .zshrc sources $HOME/.oh-my-zsh/oh-my-zsh.sh
 requires = [
     "cli.core",
 ] # aliases assume lsd; the fzf widgets assume fzf + fd + bat
 suggests = ["shell.prompt", "cli.catnap", "shell.tmux"]
 manual = [
+    # not the oh-my-zsh-git AUR package: that installs to /usr/share/oh-my-zsh
+    "git clone https://github.com/ohmyzsh/ohmyzsh ~/.oh-my-zsh (.zshrc sources $HOME/.oh-my-zsh/oh-my-zsh.sh)",
     "nvm (optional): the lazy-load block in .zshrc activates only if ~/.nvm/nvm.sh exists",
     "~/.secret_keys/openai.env is sourced if present; create it or ignore",
 ]
 notes = """
-Package: .zshrc plus .config/zsh_custom/{aliases,macros}.zsh and
+Package: .zshenv (EDITOR, $path), .zshrc, plus
+.config/zsh_custom/{aliases,macros}.zsh and
 macros/{tmux-sessionizer,tmux-manager}.zsh.
-macros.zsh binds the fzf widgets: Ctrl-W cd, Ctrl-X kill, Ctrl-B checkout,
-Alt-E edit, plus Ctrl-F/Ctrl-S for the tmux macros (see shell.tmux).
+macros.zsh binds the fzf widgets: Alt-C cd, Alt-K kill, Ctrl-B checkout,
+Alt-E edit, plus Ctrl-F/Ctrl-S for the tmux macros (see shell.tmux), and the
+launchers Ctrl-N nvim, Alt-O yazi, Alt-R reload. .zshrc loads fzf's own
+key-bindings for Ctrl-R history only.
 """
 
 [feature.shell.prompt]
@@ -171,13 +174,13 @@ pacman = [
     "tmux",
     "fzf",  # the session picker macros are fzf-driven
 ]
-manual = [
-    "git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm, then prefix + I",
-]
 notes = """
 Session picking lives in the zsh package, not here: Ctrl-F runs
 zsh_custom/macros/tmux-sessionizer.zsh and Ctrl-S runs tmux-manager.zsh, both
-over ~/.config/tmux/sessions.csv. nvim mirrors them on <C-f>f / <C-f>s.
+over ~/.config/tmux/sessions.csv. nvim runs the same sessionizer on <C-f>f;
+<C-f>s is tmux-attacher, a separate script that is not in this repo.
+tmux's prefix C-f opens that sessionizer in a popup, so it needs the zsh package.
+The first tmux start clones tpm and installs the plugins itself (git, from dev.base).
 """
 
 # ===========================================================================
@@ -232,7 +235,7 @@ pacman = [
 ]
 requires = ["editor.neovim", "docs.zathura"]
 suggests = ["cli.disk"] # yazi's delete path uses trash-cli
-notes = "Bound to Ctrl-Y in zsh and SUPER+E in hyprland (kitty -e yazi)."
+notes = "Bound to Alt-O in zsh and SUPER+E in hyprland (kitty -e yazi)."
 
 [feature.cli.catnap]
 enabled = true
@@ -273,8 +276,9 @@ stow = ["kitty"]
 pacman = ["kitty"]
 requires = ["system.fonts"]
 notes = """
-Contents: kitty.conf, current-theme.conf, theme-custom.template.
-Auto-themed: applwal.sh runs quickshell/scripts/kitty-colorizer.py, which
+Contents: kitty.conf, theme-custom.template, and the generated current-theme.conf
+(gitignored; a fresh clone gets it on the first applwal.sh run).
+Auto-themed: applwal.sh runs quickshell/scripts/wal-template.py, which
 renders theme-custom.template from the wal palette into current-theme.conf;
 applwal.sh then signals SIGUSR1 so running windows reload. .bashrc sends the
 same signal at login. This is the SUPER+q terminal.
@@ -282,12 +286,12 @@ same signal at login. This is the SUPER+q terminal.
 
 [feature.terminal.ghostty]
 enabled = true
-description = "ghostty, pywal-themed via ghosty-colorizer.py — no hyprland keybind"
+description = "ghostty, pywal-themed via wal-template.py — no hyprland keybind"
 stow = ["ghostty"]
 pacman = ["ghostty"]
 requires = ["system.fonts"]
 suggests = ["desktop.theming"]                                                             # the colorizer only runs from applwal.sh
-notes = "themes/theme-custom is generated from theme-custom.template; reloads on SIGUSR2."
+notes = "themes/theme-custom is generated from theme-custom.template (gitignored; created on the first applwal.sh run); reloads on SIGUSR2."
 
 # ===========================================================================
 # editor — neovim core plus its optional plugin stacks
@@ -503,29 +507,25 @@ pacman = [
     "hyprland-qtutils", # the dialogs hyprland shells out to
     "hyprpolkitagent",  # started from the hyprland.start hook
     "wl-clipboard",     # SUPER+N screenshot pipes through wl-copy
-    "jq",               # hyprctl monitor queries in hyprland.lua and applwal.sh
+    "jq",               # hyprctl monitor queries in applwal.sh
     "hyprpicker",       # colour picker; installed, but not bound to any key here
 ]
-aur = ["hyprscrolling"] # general.layout = "scrolling"; installed via hyprpm
 services = ["--user hyprpolkitagent"]
 requires = ["desktop.portals", "audio.pipewire"]
 suggests = [
     "desktop.lockscreen",
     "desktop.pointer",
-    "desktop.waybar",
     "desktop.quickshell",
-]
-manual = [
-    "hyprpm add https://github.com/... && hyprpm enable hyprscrolling (config calls `hyprpm reload -n` at startup)",
 ]
 notes = """
 Package contents: hyprland.lua (the lua config format, not hyprlang), hyprlock.conf,
-.luarc.json (LSP hints for the lua config), xdph_start.sh, pk_install_screenshare.sh
-(a yay helper for the portal packages), and `config` — which is the wl-kbptr
-config, passed explicitly as `wl-kbptr -c ~/.config/hypr/config`.
-The hyprland.start hook launches: waybar, quickshell, swaync, awww-daemon,
-mpd-mpris, kdeconnect-indicator, syncthing and miniserve. Each of those belongs
-to the feature named below; a disabled feature leaves a failing exec line behind.
+hypridle.conf, .luarc.json (LSP hints for the lua config), and `config` — which is
+the wl-kbptr config, passed explicitly as `wl-kbptr -c ~/.config/hypr/config`.
+The scrolling layout is built into Hyprland 0.56, so no hyprscrolling plugin.
+The hyprland.start hook launches: hyprpolkitagent, quickshell (which draws the bar),
+swaync, awww-daemon, hypridle, kdeconnect-indicator, syncthing and miniserve. Each
+of those belongs to the feature named below; a disabled feature leaves a failing
+exec line behind.
 """
 
 [feature.desktop.portals]
@@ -536,18 +536,22 @@ pacman = [
     "xdg-desktop-portal-hyprland",
     "xdg-desktop-portal-gtk",      # the GTK file-chooser backend
 ]
-notes = "hypr/xdph_start.sh restarts the portal stack after the compositor is up."
+notes = "The portals are D-Bus/systemd user services; nothing in the hypr config starts them."
 
 [feature.desktop.lockscreen]
 enabled = true
-description = "hyprlock — the lock screen the keybind and dashboard button call"
-pacman = ["hyprlock"] # hyprlock.conf ships with the hypr package
+description = "hyprlock + hypridle — the lock screen, locking on idle and before sleep"
+pacman = [
+    "hyprlock", # hyprlock.conf ships with the hypr package
+    "hypridle", # so does hypridle.conf; started from the hyprland.start hook
+]
 requires = ["desktop.hyprland"]
 notes = """
 Bound to SUPER+SHIFT+CTRL+ALT+L in hyprland.lua and to the power button in
 quickshell's Dashboard.
-No idle timeout is configured: hypridle and swayidle are installed on this
-machine but neither has a config file in this repo, so nothing auto-locks.
+hypridle.conf locks before sleep; after 2.5 min idle it dims the panel and turns
+off the keyboard backlight, locks at 5 min and turns the screens off at 5.5 min.
+No auto-suspend.
 """
 
 [feature.desktop.pointer]
@@ -561,8 +565,8 @@ requires = ["desktop.hyprland"]
 notes = "SUPER+A enters the submap; hjkl move, s/d/f click, e/r/t/g scroll, escape exits."
 
 [feature.desktop.waybar]
-enabled = true
-description = "waybar top bar — clock, workspaces, media, volume, net, dashboard"
+enabled = false
+description = "waybar top bar — retired, replaced by the quickshell bar"
 stow = ["waybar"]
 pacman = [
     "waybar",
@@ -574,24 +578,28 @@ pacman = [
 requires = ["desktop.hyprland", "system.fonts"]
 suggests = ["desktop.quickshell", "desktop.theming"]
 notes = """
+Retired: desktop.quickshell's components/Bar.qml replaces it with the same pills,
+themed live and with clickable workspaces (waybar's `on-click: activate` sends
+the pre-Lua `dispatch workspace N`, which Hyprland 0.56 rejects). Nothing
+launches waybar any more; the package is kept for reference.
 Bar buttons call `qs ipc call ...`, so the panels come from desktop.quickshell.
-launch.sh (killall + relaunch) is what hyprland and applwal.sh invoke.
+launch.sh (killall + relaunch) is what hyprland and applwal.sh used to invoke.
 scripts/ holds volume.sh and network.sh; custom/media runs playerctl inline.
 style.css imports ~/.cache/wal/colors-waybar.css, generated by desktop.theming.
 """
 
 [feature.desktop.quickshell]
 enabled = true
-description = "quickshell panels — launcher, dashboard, wifi, bluetooth, music"
+description = "quickshell bar + panels — launcher, dashboard, wifi, bluetooth, audio, music, OSD"
 stow = ["quickshell"]
 pacman = [
     "quickshell",
-    "qt6-declarative", # the QML runtime
-    "qt6-5compat",     # Qt5Compat.GraphicalEffects, used by MusicPanel's DropShadow
+    "qt6-declarative", # the QML runtime (incl. QtQuick.Effects for MusicPanel's shadow)
     "uv",              # runs scripts/create_thumbs.py
-    "brightnessctl",   # the dashboard brightness slider
+    "brightnessctl",   # the dashboard brightness slider, and the OSD's brightness readout
     "libnotify",       # low-battery notifications
     "imagemagick",     # applwal.sh's resize/blur steps live in this package
+    "wl-clipboard",    # clipboard history: wl-paste --watch records, wl-copy restores
 ]
 requires = [
     "desktop.hyprland",
@@ -601,17 +609,31 @@ requires = [
     "desktop.theming",
 ]
 notes = """
-Wifi/BT/MPRIS come from Quickshell's own services, not shelled-out CLIs.
+Wifi/BT/MPRIS/audio come from Quickshell's own services, not shelled-out CLIs.
 Thumbnails: `uv run scripts/create_thumbs.py` (pulls Pillow itself).
-Layout: shell.qml + components/ (Dashboard, LauncherPanel, MusicPanel, WifiPanel,
-BluetoothPanel) + Common/ (Theme, Paths, StyledText, Card, ToggleSwitch, ValueSlider).
-scripts/ also holds applwal.sh (the theming hub used by desktop.theming),
-ghosty-colorizer.py and kitty-colorizer.py.
+Layout: shell.qml + components/ (Bar, Dashboard, LauncherPanel, MusicPanel,
+WifiPanel, BluetoothPanel, AudioPanel, Osd) + Common/ (Theme, Paths, Settings,
+Battery, Audio, calc.js, StyledText, Card, ToggleSwitch, ValueSlider).
+Bar.qml replaces waybar (one per screen, same geometry). One panel is open at a
+time, inside a Hyprland focus grab that gives it the keyboard: clicking
+elsewhere closes it (Hyprland swallows that click), Escape too. Panels must not
+use WlrKeyboardFocus.Exclusive, which makes Hyprland drop the grab. The OSD follows the Pipewire sink and backlight uevents
+(`udevadm monitor`), so the XF86 binds need no changes.
+Clipboard history (launcher Clip tab) is text only, kept in memory until the
+shell restarts, and skips copies password managers mark as sensitive.
+Keep awake is an idle inhibitor that pauses hypridle's timers. IPC targets:
+launcher, wallpaper, clipboard, dashboard, music, wifi, bluetooth, audio,
+keepawake (`qs ipc call <target> toggle`). hyprland.lua binds clipboard
+(SUPER+SHIFT+V), dashboard (SUPER+D) and wallpaper (SUPER+W).
+scripts/ also holds applwal.sh (the theming hub used by desktop.theming) and
+wal-template.py (fills the kitty and ghostty theme templates).
 assets/ is ~8MB of live content, not cruft: MusicPanel `find`s assets/gifs/*.gif
-for its picker (copying the choice to current.gif) and the Dashboard does the same
-with assets/pfps/ -> pfp.jpg. assets/gifs/circlegif.sh is the ffmpeg helper that
-authored them (mp4 -> circular gif).
-Runtime state (app_usage.json) lives in ~/.local/state/quickshell, not the repo.
+for its picker and the Dashboard does the same with assets/pfps/. A pick is
+stored as a path in settings.json (nothing is copied into the repo); current.gif
+and pfp.jpg are the defaults until then. assets/gifs/circlegif.sh is the ffmpeg
+helper that authored them (mp4 -> circular gif).
+Runtime state (app_usage.json, settings.json) lives in ~/.local/state/quickshell,
+not the repo.
 """
 
 [feature.desktop.notifications]
@@ -709,16 +731,17 @@ quickshell's wallpaper tab and create_thumbs.py both read favorites/.
 
 [feature.desktop.appearance]
 enabled = true
-description = "cursor theme, Qt/GTK styling to match the compositor env vars"
+description = "cursor theme and GTK styling to match the compositor env vars"
 pacman = [
-    "qt5ct",
-    "qt6ct",
-    "kvantum",
     "adwaita-icon-theme", # .bashrc pins GTK_THEME to Adwaita:dark
 ]
 aur = ["bibata-cursor-theme-bin"]
 requires = ["desktop.hyprland"]
-notes = "hyprland.lua pins XCURSOR/HYPRCURSOR to Bibata-Modern-Ice at size 25."
+notes = """
+hyprland.lua pins XCURSOR/HYPRCURSOR to Bibata-Modern-Ice at size 24.
+qt5ct/qt6ct/kvantum were dropped along with hyprland.lua's QT_QPA_PLATFORMTHEME
+and QT_STYLE_OVERRIDE, so Qt apps use Qt's default style.
+"""
 
 # ===========================================================================
 # audio
@@ -755,7 +778,7 @@ pacman = [
 ]
 services = ["--user mpd", "--user mpd-mpris"]
 requires = ["audio.pipewire"]
-notes = "hyprland's start hook already launches mpd-mpris, so that exec fails while this is off."
+notes = "mpd and mpd-mpris run as user units (services above); hyprland.lua doesn't launch mpd-mpris."
 
 [feature.audio.visualizer]
 enabled = false
@@ -818,8 +841,9 @@ description = "miniserve — serves the firefox start page over localhost"
 pacman = ["miniserve"]
 notes = """
 hyprland's start hook runs it against $HOME/.config/firefox/ with
---index home.html. Split out from apps.browser because it is a plain static
-server you may want for other directories too.
+--index home.html, bound to loopback only (-i 127.0.0.1 -i ::1) so the
+directory isn't served to the LAN. Split out from apps.browser because it is a
+plain static server you may want for other directories too.
 """
 
 # ===========================================================================

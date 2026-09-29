@@ -1,13 +1,10 @@
 # =============================================================================
 # 1. ENVIRONMENT VARIABLES & PATHS
 # =============================================================================
+# EDITOR and $path are set in ~/.zshenv, so the login shell SDDM starts
+# Hyprland from (and every GUI app under it) gets them too.
 export ZSH="$HOME/.oh-my-zsh"
 export ZSH_CUSTOM="$HOME/.config/zsh_custom"
-export EDITOR="nvim"
-
-# Keep $path free of duplicates, prepend Cargo and ~/.local/bin (uv tools)
-typeset -U path
-path=("$HOME/.cargo/bin" "$HOME/.local/bin" $path)
 
 # Load secret keys (skip silently if the file isn't there)
 [[ -r "$HOME/.secret_keys/openai.env" ]] && source "$HOME/.secret_keys/openai.env"
@@ -15,7 +12,9 @@ path=("$HOME/.cargo/bin" "$HOME/.local/bin" $path)
 # =============================================================================
 # 2. OH MY ZSH CONFIGURATION
 # =============================================================================
-ZSH_THEME="robbyrussell"
+# starship draws the prompt (section 5); the theme is only a fallback for
+# machines without it
+if (( $+commands[starship] )); then ZSH_THEME=""; else ZSH_THEME="robbyrussell"; fi
 
 plugins=( git z sudo web-search copypath extract )
 
@@ -28,6 +27,13 @@ source "$ZSH/oh-my-zsh.sh"
 # =============================================================================
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# fzf's Ctrl-R fuzzy history. Empty commands switch off its Ctrl-T and Alt-C
+# bindings (Alt-C is macros.zsh's cd widget); completion.zsh stays unloaded,
+# so Tab is untouched. Needs a terminal: without one ($TTY empty, e.g.
+# `zsh -i -c` from a tool) the file errors with "can't change option: zle".
+FZF_CTRL_T_COMMAND= FZF_ALT_C_COMMAND=
+[[ -n $TTY && -r /usr/share/fzf/key-bindings.zsh ]] && source /usr/share/fzf/key-bindings.zsh
 
 # =============================================================================
 # 4. NODE VERSION MANAGER (NVM) — lazy-loaded
@@ -51,6 +57,7 @@ fi
 # =============================================================================
 # 5. STARTUP SCRIPTS
 # =============================================================================
-# Placed last so it doesn't block the shell from initializing quickly
-catnap
-eval "$(starship init zsh)"
+# Both are optional features in deps.toml (cli.catnap, shell.prompt), so skip
+# them where they aren't installed instead of erroring at every prompt
+(( $+commands[catnap] )) && catnap
+(( $+commands[starship] )) && eval "$(starship init zsh)"

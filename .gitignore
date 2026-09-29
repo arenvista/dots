@@ -33,6 +33,13 @@ configs/nvim/.config/yarn.lock
 configs/firefox/.config/firefox/current.jpg
 configs/firefox/.config/firefox/todo.js
 
+# The same wallpaper change regenerates these themes from the pywal palette
+# (their templates stay tracked); a fresh clone gets them on the first
+# applwal.sh run.
+configs/kitty/.config/kitty/current-theme.conf
+configs/ghostty/.config/ghostty/themes/theme-custom
+configs/zathura/.config/zathura/zathurarc
+
 # --- editor / OS ----------------------------------------------------------
 *.swp
 *.swo

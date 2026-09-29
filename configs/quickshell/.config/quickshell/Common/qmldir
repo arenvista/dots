@@ -1,5 +1,8 @@
 singleton Theme Theme.qml
 singleton Paths Paths.qml
+singleton Settings Settings.qml
+singleton Battery Battery.qml
+singleton Audio Audio.qml
 StyledText 1.0 StyledText.qml
 Card 1.0 Card.qml
 ToggleSwitch 1.0 ToggleSwitch.qml

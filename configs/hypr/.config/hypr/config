@@ -6,7 +6,9 @@
 [general]
 home_row_keys=cieansthkr.
 modes=tile,bisect
-cancellation_status_code=0
+# Non-zero so the `wl-kbptr && ...` chain on SUPER+R in hyprland.lua stops
+# when the jump is cancelled with Escape (0 would let it continue).
+cancellation_status_code=1
 
 [mode_tile]
 label_color=#fffd

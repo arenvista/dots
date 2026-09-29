@@ -16,7 +16,7 @@ wk.add({
     { "<c-f>", group = "Tmux", icon = "󰢩 " },
     {
         "<c-f>f",
-        "<cmd>silent !tmux neww tmux-sessionizer<CR>",
+        "<cmd>silent !tmux neww ~/.config/zsh_custom/macros/tmux-sessionizer.zsh<CR>",
         desc = "Tmux Sessionizer",
         icon = "󰉕 ",
     },
