@@ -77,6 +77,7 @@ desktop = [
     "cli.files",
     "cli.catnap",
     "cli.define",
+    "cli.monitoring",
     "terminal.kitty",
     "terminal.ghostty",
     "editor.neovim",
@@ -111,6 +112,7 @@ desktop = [
     "apps.browser",
     "system.dotfiles",
     "system.fonts",
+    "system.power",
 ]
 full = ["*"] # every feature below
 
@@ -261,9 +263,12 @@ key; run it by hand or wire it up yourself.
 """
 
 [feature.cli.monitoring]
-enabled = false
+enabled = true
 description = "terminal system monitors"
-pacman = ["bpytop", "duf"]
+pacman = [
+    "btop", # process/CPU/battery monitor; bpytop's C++ successor
+    "duf",  # df replacement
+]
 
 # ===========================================================================
 # terminal — emulators
@@ -506,7 +511,7 @@ pacman = [
     "hyprland",
     "hyprland-qtutils", # the dialogs hyprland shells out to
     "hyprpolkitagent",  # started from the hyprland.start hook
-    "wl-clipboard",     # SUPER+N screenshot pipes through wl-copy
+    "wl-clipboard",     # SUPER+N / Print screenshots pipe through wl-copy
     "jq",               # hyprctl monitor queries in applwal.sh
     "hyprpicker",       # colour picker; installed, but not bound to any key here
 ]
@@ -519,13 +524,15 @@ suggests = [
 ]
 notes = """
 Package contents: hyprland.lua (the lua config format, not hyprlang), hyprlock.conf,
-hypridle.conf, .luarc.json (LSP hints for the lua config), and `config` — which is
-the wl-kbptr config, passed explicitly as `wl-kbptr -c ~/.config/hypr/config`.
+hypridle.conf, .luarc.json (LSP hints for the lua config), scripts/idle-dim.sh
+(hypridle's dim step) and scripts/powermode.sh (reloads on plug/unplug, so the
+battery profile hyprland.lua picks at load follows the charger; see system.power).
 The scrolling layout is built into Hyprland 0.56, so no hyprscrolling plugin.
-The hyprland.start hook launches: hyprpolkitagent, quickshell (which draws the bar),
-swaync, awww-daemon, hypridle, kdeconnect-indicator, syncthing and miniserve. Each
-of those belongs to the feature named below; a disabled feature leaves a failing
-exec line behind.
+The hyprland.start hook runs `systemctl --user start hyprpolkitagent hypridle swaync`
+(started, not enabled: graphical-session.target never activates in this session),
+then launches quickshell (which draws the bar), awww-daemon, kdeconnect-indicator
+and miniserve. Each of those belongs to the feature named below; a disabled feature
+leaves a failing exec line or unit behind.
 """
 
 [feature.desktop.portals]
@@ -543,7 +550,7 @@ enabled = true
 description = "hyprlock + hypridle — the lock screen, locking on idle and before sleep"
 pacman = [
     "hyprlock", # hyprlock.conf ships with the hypr package
-    "hypridle", # so does hypridle.conf; started from the hyprland.start hook
+    "hypridle", # so does hypridle.conf; its user unit is started from the hyprland.start hook
 ]
 requires = ["desktop.hyprland"]
 notes = """
@@ -551,14 +558,15 @@ Bound to SUPER+SHIFT+CTRL+ALT+L in hyprland.lua and to the power button in
 quickshell's Dashboard.
 hypridle.conf locks before sleep; after 2.5 min idle it dims the panel and turns
 off the keyboard backlight, locks at 5 min and turns the screens off at 5.5 min.
-No auto-suspend.
+Suspends at 15 min on battery only; never on AC.
 """
 
 [feature.desktop.pointer]
 enabled = true
 description = "keyboard-driven pointer — jump-to-target and the `cursor` submap"
+stow = ["wl-kbptr"]
 aur = [
-    "wl-kbptr", # SUPER+R jump-to-target, config at ~/.config/hypr/config
+    "wl-kbptr", # SUPER+R jump-to-target, config at ~/.config/wl-kbptr/config (its default path)
     "wlrctl",   # the "cursor" submap's pointer moves, clicks and scrolls
 ]
 requires = ["desktop.hyprland"]
@@ -642,6 +650,7 @@ description = "swaync notification daemon and control center"
 stow = ["swaync"]
 pacman = ["swaync", "libnotify"]
 requires = ["desktop.hyprland"]
+# swaync.service is started (not enabled) from the hyprland.start hook
 suggests = ["desktop.theming"]
 notes = "style.css is generated (gitignored) — applwal.sh copies ~/.cache/wal/colors-swaync.css over it."
 
@@ -675,7 +684,7 @@ lock button and the bash `sl` alias use swaylock.
 
 [feature.desktop.screenshot]
 enabled = true
-description = "grim + slurp region capture (SUPER+N)"
+description = "grim + slurp capture — SUPER+N region, Print focused monitor"
 pacman = [
     "grim",
     "slurp",        # the region selector piped into grim
@@ -821,12 +830,8 @@ services = ["bluetooth"]
 enabled = true
 description = "Syncthing file sync"
 pacman = ["syncthing"]
-requires = ["desktop.hyprland"]
-notes = """
-Started by hyprland's exec hook, NOT by systemd — the `syncthing.service` user
-unit is disabled on this machine. Enable that unit instead if you want it on a
-box with no compositor.
-"""
+services = ["--user syncthing"]
+notes = "Runs as the enabled syncthing.service user unit (default.target), independent of the compositor."
 
 [feature.net.kdeconnect]
 enabled = true
@@ -930,3 +935,26 @@ enabled = false
 description = "fwupd — firmware updates, driven by fwupdmgr directly"
 pacman = ["fwupd"]
 notes = "utils/firmware.sh is the two-line wrapper: get-updates then update."
+
+[feature.system.power]
+enabled = true
+description = "TLP + throttled battery tuning for the T480, plus the tools that measure it"
+pacman = [
+    "tlp",             # charge thresholds + system/etc/tlp.d/10-battery.conf
+    "tlp-rdw",         # radio switching on NetworkManager events
+    "throttled",       # PL1/PL2 limits from system/etc/throttled.conf
+    "powertop",        # measuring only; --auto-tune fights TLP
+    "libva-utils",     # vainfo, to check VA-API decode (LIBVA_DRIVER_NAME in hyprland.lua)
+    "intel-gpu-tools", # intel_gpu_top, to see what blur and animations cost
+    "nvme-cli",        # NVMe power states and health
+]
+services = ["tlp", "throttled"]
+# TLP and throttled stand alone; these add the battery profile (hyprland.lua,
+# scripts/powermode.sh), the plug/unplug hook, and suspend-on-battery
+suggests = ["desktop.hyprland", "desktop.quickshell", "desktop.lockscreen"]
+notes = """
+The /etc files live in system/etc/ (not stowed: stow only targets $HOME) and are
+copied into place by the setup steps in src/tui/features/system_power.py.
+Conflicts: power-profiles-daemon, auto-cpufreq and tuned all fight TLP; thermald
+fights throttled. Full write-up: docs/section/power.typ.
+"""

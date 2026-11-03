@@ -37,7 +37,7 @@ return {
                 "pylint",
                 "eslint_d",
                 "latexindent",
-                "prettypst",
+                "typstyle",
             },
         })
     end,

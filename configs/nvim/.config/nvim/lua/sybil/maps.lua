@@ -880,6 +880,25 @@ wk.add({
         desc = "Toggle Table Mode",
         icon = "󰓰 ",
     },
+    {
+        -- `typst watch` for the current file in a bottom split. Snacks keys
+        -- terminals by command, so pressing again hides/shows the same watcher.
+        "<leader>u;",
+        function()
+            if vim.bo.filetype ~= "typst" then
+                vim.notify("Not a Typst buffer", vim.log.levels.WARN)
+                return
+            end
+            local file = vim.api.nvim_buf_get_name(0)
+            Snacks.terminal({ "typst", "watch", file }, {
+                cwd = vim.fs.dirname(file),
+                interactive = false,
+                win = { position = "bottom", height = 0.2 },
+            })
+        end,
+        desc = "Toggle Typst Watch",
+        icon = " ",
+    },
 })
 
 -- ==========================================================
@@ -942,6 +961,18 @@ vim.api.nvim_create_autocmd("User", {
                 vim.g.disable_autoformat = not state
             end,
         }):map("<leader>uF")
+
+        -- Copilot on/off for the whole session (stops/restarts its LSP client).
+        Snacks.toggle({
+            name = "Copilot",
+            get = function()
+                local ok, client = pcall(require, "copilot.client")
+                return ok and not client.is_disabled()
+            end,
+            set = function(state)
+                vim.cmd("Copilot " .. (state and "enable" or "disable"))
+            end,
+        }):map("<leader>ua")
 
         -- Inline math rendering: snacks.image replaces `$..$` / `$$..$$` with a
         -- rendered image, compiled as Typst or LaTeX depending on the buffer's

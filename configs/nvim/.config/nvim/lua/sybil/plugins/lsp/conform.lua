@@ -40,9 +40,12 @@ return {
 
                 -- LaTeX & Typst
                 tex = { "latexindent" },
+                -- typstyle, not prettypst: prettypst flattens every `mat(..)`
+                -- onto one line (even with preserve-newline.math), while
+                -- typstyle keeps a matrix written one row per line that way.
                 -- lsp_format = "fallback" hands off to tinymist (which embeds
-                -- typstyle) if prettypst is missing or errors out.
-                typst = { "prettypst", lsp_format = "fallback" },
+                -- typstyle too) if the binary is missing or errors out.
+                typst = { "typstyle", lsp_format = "fallback" },
                 -- NOTE: latexindent on markdown assumes math-heavy notes (e.g. via
                 -- your snippets' \dm/\il triggers). If a file has no LaTeX in it,
                 -- latexindent is a no-op pass-through, so this is safe either way --
@@ -105,32 +108,10 @@ return {
                 latexindent = {
                     prepend_args = { "-m", "-g", "/dev/null" },
                 },
-                prettypst = {
-                    -- prettypst reads stdin, so it has no idea which file this
-                    -- is: it resolves prettypst.toml relative to its *process
-                    -- cwd*. Without this it searched from wherever nvim happened
-                    -- to be started, so even the folders that do have a config
-                    -- only got it by luck.
-                    cwd = function(_, ctx)
-                        return ctx.dirname
-                    end,
-                    -- ...and --use-configuration is a hard error ("No
-                    -- configuration file") when there is no prettypst.toml to
-                    -- find, which is true for all but a handful of homework
-                    -- folders. Ask for it only when one actually exists;
-                    -- everything else formats with the built-in default style.
-                    args = function(_, ctx)
-                        local args = { "--use-std-in", "--use-std-out" }
-                        local found = vim.fs.find("prettypst.toml", {
-                            path = ctx.dirname,
-                            upward = true,
-                            type = "file",
-                        })
-                        if found[1] then
-                            table.insert(args, "--use-configuration")
-                        end
-                        return args
-                    end,
+                -- Same width/indent as tinymist's formatter settings
+                -- (lspconfig.lua), so the LSP fallback formats identically.
+                typstyle = {
+                    prepend_args = { "--indent-width", "4", "--line-width", "80" },
                 },
             },
         })

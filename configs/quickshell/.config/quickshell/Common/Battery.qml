@@ -54,6 +54,17 @@ Singleton {
         return h > 0 ? h + "h " + m + "m" : m + "m"
     }
 
+    // Charger plugged or pulled: powermode.sh reloads hyprland.lua (which picks
+    // its battery profile at load) and pauses syncthing on battery. May also
+    // fire once at startup as UPower's properties arrive; that's harmless, since
+    // a reload doesn't re-run the hyprland.start hook that launches quickshell.
+    Connections {
+        target: UPower
+        function onOnBatteryChanged() {
+            Quickshell.execDetached(["sh", "-c", "~/.config/hypr/scripts/powermode.sh"])
+        }
+    }
+
     // Notify once when the battery drops into the low range while discharging;
     // re-arm when charging or back above the threshold.
     property bool lowNotified: false

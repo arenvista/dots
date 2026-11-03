@@ -118,11 +118,11 @@ return {
         })
 
         -- Typst. Formatting comes from tinymist's embedded typstyle, which is
-        -- the fallback conform falls back *to* when prettypst is unavailable
-        -- (see conform.lua). semanticTokens is off because tree-sitter already
-        -- owns typst highlighting, including the `$ .. $` math injected into
-        -- markdown -- letting both run just makes the two fight over the same
-        -- ranges. exportPdf stays "never": PDFs are built by typst-preview /
+        -- the fallback conform falls back *to* when the standalone typstyle is
+        -- unavailable (see conform.lua). semanticTokens is off because
+        -- tree-sitter already owns typst highlighting, including the `$ .. $`
+        -- math injected into markdown -- letting both run just makes the two
+        -- fight over the same ranges. exportPdf stays "never": PDFs are built by typst-preview /
         -- the compiler plugin on demand, not silently on every keystroke.
         vim.lsp.config("tinymist", {
             settings = {
@@ -191,6 +191,14 @@ return {
                     -- texlab is the one configured here, so digestif sits out.
                     -- :MasonUninstall digestif if you want it gone entirely.
                     "digestif",
+                    -- copilot.lua (completion/copilot.lua) runs its own
+                    -- copilot-language-server. If mason's copy is installed,
+                    -- automatic_enable starts lspconfig's "copilot" too; it
+                    -- attaches first (FileType precedes BufEnter), copilot.lua
+                    -- then reuses that same-named client, sees the buffer as
+                    -- already attached and skips its keymaps -- so <M-l> was
+                    -- never mapped even though :Copilot status said attached.
+                    "copilot",
                 },
             },
         })

@@ -10,6 +10,20 @@ local cursorTheme = "Bibata-Modern-Ice"
 local cursorSize = 24
 local cursorDefaults = { inactive_timeout = 3, hide_on_key_press = true }
 
+-- Battery profile: read once per load. quickshell's Battery singleton runs
+-- scripts/powermode.sh on plug/unplug, which reloads this file, so blur,
+-- shadows, animations and the panel refresh rate follow the charger.
+-- No AC node (a desktop) counts as mains.
+local onBattery = (function()
+    local f = io.open("/sys/class/power_supply/AC/online")
+    if not f then
+        return false
+    end
+    local online = f:read("l")
+    f:close()
+    return online == "0"
+end)()
+
 -- ENVIRONMENT VARIABLES ----------------------------------------------------
 
 hl.env("QT_QPA_PLATFORM", "wayland")
@@ -20,6 +34,9 @@ hl.env("HYPRCURSOR_THEME", cursorTheme)
 hl.env("HYPRCURSOR_SIZE", tostring(cursorSize))
 -- Electron apps (Discord, VSCodium, ...) run natively on Wayland
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+-- Both VA-API drivers are installed; iHD (intel-media-driver) is the one that
+-- covers this Kaby Lake GPU's VP9/HEVC decode
+hl.env("LIBVA_DRIVER_NAME", "iHD")
 
 -- CORE CONFIG ----------------------------------------------------------------
 
@@ -32,7 +49,7 @@ hl.config({
         disable_hyprland_logo = true,
         animate_manual_resizes = true,
         animate_mouse_windowdragging = true,
-        vrr = 0,
+        vrr = 2, -- adaptive sync for fullscreen windows only
         mouse_move_enables_dpms = true,
         key_press_enables_dpms = true,
     },
@@ -68,14 +85,16 @@ hl.config({
         dim_inactive = true,
         dim_strength = 0.05,
         shadow = {
-            enabled = true,
+            enabled = not onBattery,
             range = 35,
             render_power = 4,
             color = "rgba(00000050)",
             offset = { 0, 8 },
         },
+        -- 3 passes behind every 0.75-opacity inactive window is the costliest
+        -- thing the UHD 620 does here, so it goes on battery
         blur = {
-            enabled = true,
+            enabled = not onBattery,
             size = 6,
             passes = 3,
             noise = 0.006,
@@ -84,13 +103,13 @@ hl.config({
             vibrancy = 0.25,
             vibrancy_darkness = 0.6,
             new_optimizations = true,
-            xray = false,
+            xray = true, -- floating windows blur the wallpaper only: one cached pass, not a re-blur per frame
             popups = true,
             special = true,
         },
     },
     animations = {
-        enabled = true,
+        enabled = not onBattery,
     },
 })
 
@@ -103,15 +122,13 @@ hl.gesture({
 
 -- MONITORS -------------------------------------------------------------------
 
-hl.monitor({ output = "eDP-1", mode = "preferred", position = "0x0", scale = "1" })
+-- The panel also advertises 48 Hz; drop to it on battery
+local panelMode = onBattery and "1920x1080@48" or "preferred"
+hl.monitor({ output = "eDP-1", mode = panelMode, position = "0x0", scale = "1" })
 hl.monitor({ output = "DP-2", mode = "5120x1440@119.97", position = "auto", scale = "1" })
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "1" }) -- catch-all fallback
 
 -- WORKSPACE RULES ------------------------------------------------------------
-
--- Dropdown terminal (SUPER+Return): the first toggle spawns kitty with the
--- scratchterm class, which the window rule below floats at 85%x70%.
-hl.workspace_rule({ workspace = "special:scratchterm", on_created_empty = "kitty --class scratchterm" })
 
 -- Monitor pinning is currently disabled: a new workspace opens on whichever
 -- monitor is focused.
@@ -188,6 +205,24 @@ hl.bind(
     )
 )
 
+-- Print grabs the whole focused monitor, no selection; SHIFT saves as above
+local function screenshotMonitor(save)
+    return function()
+        local m = hl.get_active_monitor()
+        if not m then
+            return
+        end
+        local cmd = "grim -o '" .. m.name .. "' - | "
+        if save then
+            cmd = "mkdir -p ~/Pictures/screenshots && " .. cmd
+                .. [[tee ~/Pictures/screenshots/"$(date +%Y-%m-%d_%H-%M-%S)".png | ]]
+        end
+        hl.exec_cmd(cmd .. "wl-copy")
+    end
+end
+hl.bind("Print", screenshotMonitor(false))
+hl.bind("SHIFT + Print", screenshotMonitor(true))
+
 -- pidof guard: a second press while locked doesn't start another hyprlock
 hl.bind(mainMod .. " + SHIFT + CTRL + ALT + l", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))
 
@@ -251,14 +286,12 @@ local specials = {
     { key = "Delete", name = "magic-second" },
     { key = "Tab", name = "magic-third" },
     { key = "grave", name = "magic-fourth" },
+    { key = "Return", name = "magic-fifth" },
 }
 for _, s in ipairs(specials) do
     hl.bind(mainMod .. " + " .. s.key, hl.dsp.workspace.toggle_special(s.name))
     hl.bind(mainMod .. " + SHIFT + " .. s.key, hl.dsp.window.move({ workspace = "special:" .. s.name }))
 end
-
--- Dropdown terminal (see WORKSPACE RULES)
-hl.bind(mainMod .. " + Return", hl.dsp.workspace.toggle_special("scratchterm"))
 
 -- Scroll through workspaces
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
@@ -296,24 +329,25 @@ hl.bind(
     { repeating = true, locked = true }
 )
 hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
+hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
 hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"), { locked = true })
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl s +5%"), { repeating = true, locked = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl s 5%-"), { repeating = true, locked = true })
-
-local kbptrConfig = home .. "/.config/hypr/config"
+-- -n floor so it never reaches 0 (backlight off). brightnessctl reads it in
+-- raw units, not %: 15 is 1% of this panel's max of 1515.
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl -n15 s 5%-"), { repeating = true, locked = true })
 
 -- Long-bracket strings so the inner shell quoting doesn't need escaping
 local cursorShow = [[hyprctl eval 'hl.config({ cursor = { inactive_timeout = 0, hide_on_key_press = false } })']]
 local enterSubmap = [[hyprctl dispatch 'hl.dsp.submap("cursor")']]
 
--- Jump-then-fine-tune. wl-kbptr exits non-zero when cancelled
--- (cancellation_status_code=1 in its config), so aborting the jump leaves the
+-- Jump-then-fine-tune. wl-kbptr reads ~/.config/wl-kbptr/config by default
+-- and exits non-zero when cancelled (cancellation_status_code=1 there), so aborting the jump leaves the
 -- cursor settings and submap untouched.
 hl.bind(
     mainMod .. " + r",
-    hl.dsp.exec_cmd("wl-kbptr -c '" .. kbptrConfig .. "' && " .. cursorShow .. " && " .. enterSubmap)
+    hl.dsp.exec_cmd("wl-kbptr && " .. cursorShow .. " && " .. enterSubmap)
 )
 
 -- Enter fine-tune mode directly (no jump)
@@ -374,14 +408,6 @@ hl.window_rule({
     center = true,
 })
 
-hl.window_rule({
-    name = "scratchterm",
-    match = { class = "scratchterm" },
-    float = true,
-    size = { "monitor_w * 0.85", "monitor_h * 0.7" },
-    center = true,
-})
-
 -- LAYER RULES ----------------------------------------------------------------
 -- Blur behind each surface; ignore_alpha = 0 leaves fully transparent pixels
 -- unblurred. "quickshell" is confirmed via `hyprctl layers`.
@@ -402,10 +428,13 @@ hl.layer_rule({ match = { namespace = "selection" }, no_anim = true })
 
 hl.on("hyprland.start", function()
     -- Hyprland exports its session env to systemd/D-Bus itself, but not
-    -- necessarily before this hook runs. Chaining guarantees the polkit agent
-    -- (a systemd user unit) starts with WAYLAND_DISPLAY already exported.
+    -- necessarily before this hook runs. Chaining guarantees these user units
+    -- start with WAYLAND_DISPLAY already exported. They're started here rather
+    -- than enabled because graphical-session.target never activates in this
+    -- session; as units they get restarted by systemd if they crash.
+    -- (syncthing is an enabled unit under default.target, not started here.)
     hl.exec_cmd(
-        "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP && systemctl --user start hyprpolkitagent"
+        "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP && systemctl --user start hyprpolkitagent hypridle swaync"
     )
 
     -- Compositor-side setup
@@ -414,13 +443,10 @@ hl.on("hyprland.start", function()
 
     -- Shell / UI
     hl.exec_cmd(restartQuickshell)
-    hl.exec_cmd("swaync")
     hl.exec_cmd("awww-daemon")
 
     -- Background services
-    hl.exec_cmd("hypridle")
     hl.exec_cmd("kdeconnect-indicator")
-    hl.exec_cmd("syncthing")
     -- Loopback only: nothing in ~/.config/firefox should be reachable from the LAN
     hl.exec_cmd(
         'miniserve -i 127.0.0.1 -i ::1 "$HOME/.config/firefox/" --index home.html --header "Cache-Control: no-cache, no-store, must-revalidate"'

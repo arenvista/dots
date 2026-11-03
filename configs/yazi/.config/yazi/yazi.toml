@@ -1,14 +1,8 @@
 # 2. Set the Openers and Rules
 [opener]
-nsxiv = [
-    { run = 'nsxiv "$@"', orphan = true, desc = "nsxiv" },
-]
-zathura = [
-    { run = 'zathura "$@"', orphan = true, desc = "zathura" },
-]
-nvim = [
-    { run = 'nvim "$@"', block = true, desc = "nvim" },
-]
+nsxiv = [{ run = 'nsxiv %s', orphan = true, desc = "nsxiv" }]
+zathura = [{ run = 'zathura %s', orphan = true, desc = "zathura" }]
+nvim = [{ run = 'nvim %s', block = true, desc = "nvim" }]
 
 [open]
 # Hitting Enter uses the first matching rule below
